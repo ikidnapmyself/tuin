@@ -2,6 +2,8 @@
 
 > A tulip in the garden — single-file, zero-dependency pure-bash TUI primitives.
 
+[![CI](https://github.com/ikidnapmyself/tuin/actions/workflows/ci.yml/badge.svg)](https://github.com/ikidnapmyself/tuin/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/ikidnapmyself/tuin)](https://github.com/ikidnapmyself/tuin/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](#license)
 
 `tuin` (Dutch for "garden") is a single-file, zero-dependency, MIT-licensed
