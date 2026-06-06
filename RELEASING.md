@@ -14,6 +14,8 @@ safely" in the README).
 5. `git tag -a vX.Y.Z -m 'tuin vX.Y.Z'`
 6. `git push origin main --tags`
 7. Publish the release with the digest line from step 4 in its body.
+8. Move the `stable` ref to the new tag (it points at the latest release for
+   `curl -O` consumers): `git branch -f stable vX.Y.Z && git push -f origin stable`
 
 ## Why publish the digest
 
