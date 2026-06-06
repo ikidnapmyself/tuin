@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- CI status and latest-release badges in the README.
+
 ### Changed
 - Release checklist (`RELEASING.md`) now includes a step to move the `stable`
   ref to each new tag, so the moving "always-the-latest-stable" `curl -O` URL
