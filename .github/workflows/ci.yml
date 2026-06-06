@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: recursive
+      - name: bash version
+        run: bash --version
+      - name: run BATS
+        run: tests/test_helper/bats-core/bin/bats tests/
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: install shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+      - name: lint tuin.sh, examples, and test helper
+        run: |
+          shellcheck tuin.sh
+          shellcheck examples/*.sh
+          shellcheck tests/test_helper/common-setup.bash
