@@ -156,3 +156,26 @@ setup() {
     tuin_pty 'j\r' -- 'b=$(tuin_stty_norm); tuin_choose a b >/dev/null; [[ "$b" == "$(tuin_stty_norm)" ]] && echo ok'
     [ "$pty_out" = ok ]
 }
+
+@test "choose: long list is clipped to the terminal height and scrolls" {
+    tuin_pty '\033[F\r' -- 'stty rows 10; tuin_choose $(seq 1 40)'
+    [ "$pty_out" = 40 ]
+    [[ "$pty_tty" == *"> 40"* ]]
+    [[ "$pty_tty" != *"  33"* ]]
+}
+
+@test "choose: pgdn/pgup move by a page" {
+    tuin_pty '\033[6~\r' -- 'stty rows 10; tuin_choose $(seq 1 40)'
+    [ "$pty_out" = 8 ]
+    tuin_pty '\033[6~\033[6~\033[5~\r' -- 'stty rows 10; tuin_choose $(seq 1 40)'
+    [ "$pty_out" = 8 ]
+}
+
+@test "choose: WINCH triggers a redraw with the new height" {
+    tuin_pty '%PAUSE%\r' -- '
+        stty rows 10
+        ( sleep 0.5; stty rows 30 </dev/tty; kill -WINCH $PPID ) &
+        tuin_choose $(seq 1 40)'
+    [ "$pty_out" = 1 ]
+    [[ "$pty_tty" == *"  20"* ]]
+}

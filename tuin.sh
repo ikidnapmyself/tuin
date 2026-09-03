@@ -109,14 +109,20 @@ _tuin_ord() {
 }
 
 _tuin_readkey() {
-    local k s c seq n ord rc
+    local k s c seq n ord rc t0 idle=0
     while :; do
+        t0=$SECONDS
         IFS= read -rsn1 -t 1 k <&3
         rc=$?
         (( _TUIN_INTERRUPTED )) && { _tuin_key=interrupt; return 0; }
         (( rc == 0 )) && break
-        (( rc > 128 )) && continue
-        return 1
+        (( _TUIN_REDRAW )) && { _tuin_key=redraw; return 0; }
+        if (( rc > 128 )) || (( SECONDS != t0 )); then
+            idle=0
+            continue
+        fi
+        idle=$((idle + 1))
+        (( idle >= 2 )) && return 1
     done
 
     case "$k" in
