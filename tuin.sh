@@ -676,8 +676,10 @@ _tuin_choose_filter() {
 # A looping menu. Renders <title> + options plus an auto-appended Back entry
 # (label via ${TUIN_MENU_BACK:-Back}). On an action pick, sets $TUIN_REPLY to
 # the chosen label and returns 0 (so a `while tuin_menu ...; do` loop repeats —
-# "never dying"). Returns non-zero on Back / ESC / Ctrl-C (interactive) or on
-# empty input / EOF / out-of-range (non-interactive), which ends the loop.
+# "never dying"). Returns non-zero on Back / ESC / q / left / backspace /
+# Ctrl-C (interactive) or on empty input / EOF / out-of-range
+# (non-interactive), which ends the loop. Consecutive calls with the same
+# title reopen on the last picked entry.
 # shellcheck disable=SC2034  # TUIN_REPLY is the output global, read by callers
 tuin_menu() {
     if [[ "$#" -lt 2 ]]; then
@@ -689,10 +691,17 @@ tuin_menu() {
 
     if _tuin_choose_interactive; then
         printf '%s\n' "$title" >/dev/tty 2>/dev/null
-        local sel rc
+        local sel rc start=0 i
+        [[ "$title" == "$_TUIN_MENU_LAST_TITLE" ]] && start=$_TUIN_MENU_LAST_INDEX
+        _TUIN_CHOOSE_START=$start
         sel=$(tuin_choose "${opts[@]}"); rc=$?
+        unset _TUIN_CHOOSE_START
         (( rc != 0 )) && return 1
         [[ "$sel" == "$back" ]] && return 1
+        _TUIN_MENU_LAST_TITLE="$title"
+        for (( i=0; i<${#opts[@]}; i++ )); do
+            [[ "${opts[$i]}" == "$sel" ]] && { _TUIN_MENU_LAST_INDEX=$i; break; }
+        done
         TUIN_REPLY="$sel"
         return 0
     fi
