@@ -36,6 +36,15 @@ _TUIN_LOADED=1
 
 _TUIN_VERSION="0.1.0"
 
+_TUIN_INTERRUPTED=0
+_TUIN_REDRAW=0
+_TUIN_TTY_ACTIVE=0
+_TUIN_OWN_EXIT=0
+_TUIN_STTY_SAVED=""
+_TUIN_MENU_LAST_TITLE=""
+_TUIN_MENU_LAST_INDEX=0
+_tuin_key=""
+
 # ---------------------------------------------------------------------------
 # Helpers (private)
 # ---------------------------------------------------------------------------
@@ -78,6 +87,105 @@ if _tuin_use_color; then
         _TUIN_RESET=$'\033[0m'
     fi
 fi
+
+_tuin_detect_esc_delay() {
+    local REPLY
+    if read -r -t 0.05 <<< '' 2>/dev/null; then
+        printf '0.05\n'
+    else
+        printf '1\n'
+    fi
+}
+_TUIN_ESC_DELAY="${TUIN_ESC_DELAY:-$(_tuin_detect_esc_delay)}"
+
+_tuin_bytelen() {
+    local LC_ALL=C
+    printf '%d\n' "${#1}"
+}
+
+_tuin_ord() {
+    local LC_ALL=C n
+    n=$(printf '%d' "'$1")
+    (( n < 0 )) && n=$((n + 256))
+    printf '%d\n' "$n"
+}
+
+_tuin_readkey() {
+    local k s c seq n ord rc
+    while :; do
+        IFS= read -rsn1 -t 1 k <&3
+        rc=$?
+        (( _TUIN_INTERRUPTED )) && { _tuin_key=interrupt; return 0; }
+        (( rc == 0 )) && break
+        (( rc > 128 )) && continue
+        return 1
+    done
+
+    case "$k" in
+        ''|$'\r') _tuin_key=enter; return 0 ;;
+        $'\t')    _tuin_key=tab;   return 0 ;;
+        $'\177'|$'\b') _tuin_key=bs; return 0 ;;
+        $'\033')
+            if ! IFS= read -rsn1 -t "$_TUIN_ESC_DELAY" s <&3 2>/dev/null; then
+                _tuin_key=esc; return 0
+            fi
+            case "$s" in
+                '[')
+                    seq=""; n=0
+                    while (( n < 8 )); do
+                        IFS= read -rsn1 -t "$_TUIN_ESC_DELAY" c <&3 2>/dev/null || break
+                        seq="$seq$c"; n=$((n + 1))
+                        case "$c" in [0-9\;]) ;; *) break ;; esac
+                    done
+                    case "$seq" in
+                        A) _tuin_key=up ;;    B) _tuin_key=down ;;
+                        C) _tuin_key=right ;; D) _tuin_key=left ;;
+                        H|1~|7~) _tuin_key=home ;;
+                        F|4~|8~) _tuin_key=end ;;
+                        5~) _tuin_key=pgup ;;  6~) _tuin_key=pgdn ;;
+                        Z)  _tuin_key=shift-tab ;;
+                        *)  _tuin_key=unknown ;;
+                    esac
+                    return 0 ;;
+                'O')
+                    IFS= read -rsn1 -t "$_TUIN_ESC_DELAY" c <&3 2>/dev/null || c=""
+                    case "$c" in
+                        A) _tuin_key=up ;;   B) _tuin_key=down ;;
+                        C) _tuin_key=right ;; D) _tuin_key=left ;;
+                        H) _tuin_key=home ;; F) _tuin_key=end ;;
+                        *) _tuin_key=unknown ;;
+                    esac
+                    return 0 ;;
+                *)
+                    if [[ "$s" == [[:print:]] ]]; then
+                        _tuin_key="alt-$s"
+                    else
+                        _tuin_key=unknown
+                    fi
+                    return 0 ;;
+            esac ;;
+    esac
+
+    if (( $(_tuin_bytelen "$k") > 1 )); then
+        _tuin_key="char:$k"; return 0
+    fi
+
+    ord=$(_tuin_ord "$k")
+    if (( ord >= 1 && ord <= 26 )); then
+        local letters=abcdefghijklmnopqrstuvwxyz
+        _tuin_key="ctrl-${letters:$((ord - 1)):1}"; return 0
+    fi
+    if (( ord >= 194 && ord <= 244 )); then
+        n=1; (( ord >= 224 )) && n=2; (( ord >= 240 )) && n=3
+        IFS= read -rsn"$n" -t "$_TUIN_ESC_DELAY" s <&3 2>/dev/null || s=""
+        _tuin_key="char:$k$s"; return 0
+    fi
+    if (( ord >= 32 && ord <= 126 )); then
+        _tuin_key="char:$k"; return 0
+    fi
+    _tuin_key=unknown
+    return 0
+}
 
 # ---------------------------------------------------------------------------
 # Public API — stubs (filled in by later tasks)
