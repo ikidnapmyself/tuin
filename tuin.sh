@@ -187,6 +187,68 @@ _tuin_readkey() {
     return 0
 }
 
+_tuin_tty_raw() {
+    stty -icanon -echo min 1 time 0 <&3 2>/dev/null
+    printf '\033[?25l' >&3
+}
+
+_tuin_tty_cooked() {
+    printf '\033[?25h' >&3
+    stty "$_TUIN_STTY_SAVED" <&3 2>/dev/null
+}
+
+_tuin_tty_enter() {
+    (( _TUIN_TTY_ACTIVE )) && return 0
+    exec 3<>/dev/tty 2>/dev/null || return 1
+    _TUIN_STTY_SAVED=$(stty -g <&3 2>/dev/null) || { exec 3<&-; return 1; }
+    _TUIN_TTY_ACTIVE=1
+    _TUIN_INTERRUPTED=0
+    _TUIN_REDRAW=0
+    _tuin_tty_raw
+    trap '_TUIN_INTERRUPTED=1; _tuin_tty_leave' INT TERM
+    trap '_tuin_tty_suspend' TSTP
+    trap '_tuin_tty_resume' CONT
+    trap '_TUIN_REDRAW=1' WINCH
+    if [[ -z "$(trap -p EXIT)" ]]; then
+        _TUIN_OWN_EXIT=1
+        trap '_tuin_tty_leave' EXIT
+    fi
+    return 0
+}
+
+_tuin_tty_leave() {
+    (( _TUIN_TTY_ACTIVE )) || return 0
+    _tuin_tty_cooked
+    exec 3<&-
+    _TUIN_TTY_ACTIVE=0
+    trap - INT TERM TSTP CONT WINCH
+    if (( _TUIN_OWN_EXIT )); then
+        trap - EXIT
+        _TUIN_OWN_EXIT=0
+    fi
+    return 0
+}
+
+_tuin_tty_suspend() {
+    _tuin_tty_cooked
+    trap - TSTP
+    kill -TSTP $$
+}
+
+_tuin_tty_resume() {
+    (( _TUIN_TTY_ACTIVE )) || return 0
+    _tuin_tty_raw
+    trap '_tuin_tty_suspend' TSTP
+    _TUIN_REDRAW=1
+}
+
+_tuin_tty_rows() {
+    local r c
+    read -r r c < <(stty size <&3 2>/dev/null)
+    [[ "$r" =~ ^[0-9]+$ ]] && (( r > 0 )) || r=24
+    printf '%d\n' "$r"
+}
+
 # ---------------------------------------------------------------------------
 # Public API — stubs (filled in by later tasks)
 # ---------------------------------------------------------------------------

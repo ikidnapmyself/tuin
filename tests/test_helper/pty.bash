@@ -8,6 +8,19 @@ _tuin_pty_script() {
     fi
 }
 
+_TUIN_PTY_STTY_NORM='
+tuin_stty_norm() {
+    local g lf
+    g=$(stty -g) || return 1
+    case "$g" in
+        *lflag=*)
+            lf=${g#*lflag=}; lf=${lf%%:*}
+            printf "%s" "${g/lflag=$lf/lflag=$(printf "%x" $(( 0x$lf & ~0x20000000 )))}"
+            ;;
+        *) printf "%s" "$g" ;;
+    esac
+}'
+
 tuin_pty() {
     local keys="$1"; shift
     [[ "${1:-}" == "--" ]] && shift
@@ -18,6 +31,7 @@ tuin_pty() {
     printf '%s\n' \
         '#!/usr/bin/env bash' \
         "source '$TUIN_SH'" \
+        "$_TUIN_PTY_STTY_NORM" \
         "( $snippet ) > '$dir/out'" \
         "echo \$? > '$dir/status'" > "$wrapper"
     chmod +x "$wrapper"
