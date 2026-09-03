@@ -134,9 +134,10 @@ setup() {
 }
 
 @test "choose: labels with control bytes render stripped but return byte-exact" {
+    local clear=$'\033[2J'
     tuin_pty '\r' -- "tuin_choose \$'ev\\033[2Jil' safe"
     [ "$pty_out" = $'ev\033[2Jil' ]
-    [[ "$pty_tty" != *$'\033[2J'* ]]
+    [[ "$pty_tty" != *"$clear"* ]]
     [[ "$pty_tty" == *"ev[2Jil"* ]]
 }
 

@@ -708,7 +708,7 @@ tuin_menu() {
     local opts=("$@" "$back")
 
     if _tuin_choose_interactive; then
-        printf '%s\n' "$title" >/dev/tty 2>/dev/null
+        printf '%s\n' "${title//[[:cntrl:]]/}" >/dev/tty 2>/dev/null
         local sel rc start=0 i
         [[ "$title" == "$_TUIN_MENU_LAST_TITLE" ]] && start=$_TUIN_MENU_LAST_INDEX
         _TUIN_CHOOSE_START=$start
@@ -725,9 +725,9 @@ tuin_menu() {
     fi
 
     local i
-    printf '%s\n' "$title" >&2
+    printf '%s\n' "${title//[[:cntrl:]]/}" >&2
     for (( i=0; i<${#opts[@]}; i++ )); do
-        printf '  %d) %s\n' "$((i + 1))" "${opts[$i]}" >&2
+        printf '  %d) %s\n' "$((i + 1))" "${opts[$i]//[[:cntrl:]]/}" >&2
     done
     local pick
     IFS= read -r pick || return 1
