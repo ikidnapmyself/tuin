@@ -21,12 +21,6 @@
 #   - Bash 3.2+ compatible (macOS default shell).
 #   - Zero external dependencies beyond bash, printf, read, stty, tput.
 #
-# Known v0.1.0 limitation — Ctrl-C in tuin_choose:
-#   On bash 3.2, the read builtin auto-restarts after a signal-triggered
-#   trap returns, so the first Ctrl-C restores cursor + stty cleanly but
-#   leaves the menu waiting; a second Ctrl-C is needed to actually exit.
-#   Cursor and terminal state are always restored on the first press.
-#
 # License: MIT (see LICENSE)
 #   Copyright (c) 2026 Burak
 #
@@ -40,6 +34,7 @@ _TUIN_INTERRUPTED=0
 _TUIN_REDRAW=0
 _TUIN_TTY_ACTIVE=0
 _TUIN_OWN_EXIT=0
+_TUIN_TRAPPED=0
 _TUIN_STTY_SAVED=""
 _TUIN_MENU_LAST_TITLE=""
 _TUIN_MENU_LAST_INDEX=0
@@ -73,17 +68,20 @@ _tuin_euid() {
 _TUIN_CYAN=""
 _TUIN_BOLD=""
 _TUIN_REV=""
+_TUIN_DIM=""
 _TUIN_RESET=""
 if _tuin_use_color; then
     if command -v tput >/dev/null 2>&1; then
         _TUIN_CYAN=$(tput setaf 6 2>/dev/null  || printf '\033[36m')
         _TUIN_BOLD=$(tput bold     2>/dev/null || printf '\033[1m')
         _TUIN_REV=$(tput rev       2>/dev/null || printf '\033[7m')
+        _TUIN_DIM=$(tput dim       2>/dev/null || printf '\033[2m')
         _TUIN_RESET=$(tput sgr0    2>/dev/null || printf '\033[0m')
     else
         _TUIN_CYAN=$'\033[36m'
         _TUIN_BOLD=$'\033[1m'
         _TUIN_REV=$'\033[7m'
+        _TUIN_DIM=$'\033[2m'
         _TUIN_RESET=$'\033[0m'
     fi
 fi
@@ -205,7 +203,8 @@ _tuin_tty_enter() {
     _TUIN_INTERRUPTED=0
     _TUIN_REDRAW=0
     _tuin_tty_raw
-    trap '_TUIN_INTERRUPTED=1; _tuin_tty_leave' INT TERM
+    _TUIN_TRAPPED=1
+    trap '_tuin_tty_onsignal' INT TERM
     trap '_tuin_tty_suspend' TSTP
     trap '_tuin_tty_resume' CONT
     trap '_TUIN_REDRAW=1' WINCH
@@ -216,16 +215,29 @@ _tuin_tty_enter() {
     return 0
 }
 
-_tuin_tty_leave() {
-    (( _TUIN_TTY_ACTIVE )) || return 0
-    _tuin_tty_cooked
-    exec 3<&-
-    _TUIN_TTY_ACTIVE=0
+_tuin_tty_onsignal() {
+    _TUIN_INTERRUPTED=1
+    return 0
+}
+
+_tuin_tty_untrap() {
+    (( _TUIN_TRAPPED )) || return 0
+    _TUIN_TRAPPED=0
     trap - INT TERM TSTP CONT WINCH
     if (( _TUIN_OWN_EXIT )); then
         trap - EXIT
         _TUIN_OWN_EXIT=0
     fi
+    return 0
+}
+
+_tuin_tty_leave() {
+    if (( _TUIN_TTY_ACTIVE )); then
+        _tuin_tty_cooked
+        exec 3<&-
+        _TUIN_TTY_ACTIVE=0
+    fi
+    _tuin_tty_untrap
     return 0
 }
 
@@ -440,13 +452,7 @@ tuin_choose() {
     local options=("$@")
     local count="${#options[@]}"
 
-    # Interactive only when a human is at stdin AND /dev/tty opens on fd 3.
-    local interactive=0
-    if _tuin_choose_interactive && exec 3<>/dev/tty 2>/dev/null; then
-        interactive=1
-    fi
-
-    if (( ! interactive )); then
+    if ! _tuin_choose_interactive || ! _tuin_tty_enter; then
         local pick
         IFS= read -r pick || pick=""
         if [[ "$pick" =~ ^[1-9][0-9]*$ ]] && [[ "$pick" -le "$count" ]]; then
@@ -457,107 +463,120 @@ tuin_choose() {
         return 0
     fi
 
-    # Interactive path: UI + keys via /dev/tty (fd 3); value via stdout (fd 1).
-    local selected=0
-    local saved_stty
-    saved_stty=$(stty -g <&3)
-    stty -icanon -echo min 1 time 0 <&3 2>/dev/null
+    local filter="" filter_enabled=0 numbered=0 hints=1
+    case "${TUIN_FILTER:-}" in
+        1) filter_enabled=1 ;;
+        0) filter_enabled=0 ;;
+        *) (( count >= 10 )) && filter_enabled=1 ;;
+    esac
+    (( ! filter_enabled && count < 10 )) && numbered=1
+    [[ "${TUIN_HINTS:-1}" == 0 ]] && hints=0
 
-    local _tuin_interrupted=0
-    trap '_tuin_interrupted=1; printf "\r\033[K\033[?25h" >&3; stty "$saved_stty" <&3 2>/dev/null; trap - INT TERM' INT TERM
-
-    local filter=""
-    local filter_enabled=0
-    (( count >= 10 )) && filter_enabled=1
-    local filtered_indices=()
-    local i
+    local selected=0 top=0 rows=0 max_rows=0 last_height=0
+    local filtered_indices=() visible_count i
     for (( i=0; i<count; i++ )); do
         filtered_indices+=("$i")
     done
-    local visible_count="${#filtered_indices[@]}"
+    visible_count=$count
+    if [[ "${_TUIN_CHOOSE_START:-}" =~ ^[0-9]+$ ]] && (( _TUIN_CHOOSE_START < count )); then
+        selected=$_TUIN_CHOOSE_START
+    fi
 
-    printf '\033[?25l' >&3  # hide cursor
-    _tuin_choose_render >&3
+    local hint
+    if _tuin_is_utf8; then
+        hint='↑↓/jk move · enter pick · esc cancel'
+    else
+        hint='up/down/jk move, enter pick, esc cancel'
+    fi
+    (( filter_enabled )) && hint="${hint/\/jk/} · type to filter"
+    (( numbered )) && hint="${hint/enter pick/1-9 or enter pick}"
 
-    local last_height=$visible_count
-    (( filter_enabled )) && last_height=$((last_height + 1))
+    _tuin_choose_draw
 
-    local key seq
+    local c
     while :; do
-        IFS= read -rsn1 key <&3
-        if (( _tuin_interrupted )); then
-            exec 3<&-
+        if ! _tuin_readkey; then
+            _tuin_tty_leave
+            return 1
+        fi
+        if (( _TUIN_INTERRUPTED )); then
+            _tuin_tty_leave
             return 130
         fi
-        case "$key" in
-            $'\033')
-                if read -rsn2 -t 1 seq <&3 2>/dev/null; then
-                    case "$seq" in
-                        "[A") (( selected > 0 )) && selected=$((selected - 1)) ;;
-                        "[B") (( selected < visible_count - 1 )) && selected=$((selected + 1)) ;;
-                    esac
-                else
-                    if (( filter_enabled )) && [[ -n "$filter" ]]; then
-                        filter=""
-                        _tuin_choose_apply_filter
-                    else
-                        printf '\033[?25h' >&3
-                        stty "$saved_stty" <&3 2>/dev/null
-                        trap - INT TERM
-                        exec 3<&-
-                        return 1
-                    fi
-                fi
-                ;;
-            "")
-                printf '\033[?25h' >&3
-                stty "$saved_stty" <&3 2>/dev/null
-                trap - INT TERM
-                if (( visible_count == 0 )); then
-                    exec 3<&-
-                    return 1
-                fi
+        case "$_tuin_key" in
+            up|ctrl-p|shift-tab) _tuin_choose_move -1 1 ;;
+            down|ctrl-n|tab)     _tuin_choose_move 1 1 ;;
+            home) selected=0 ;;
+            end)  selected=$((visible_count - 1)) ;;
+            pgup) _tuin_choose_move "-$rows" 0 ;;
+            pgdn) _tuin_choose_move "$rows" 0 ;;
+            enter)
+                _tuin_tty_leave
+                (( visible_count == 0 )) && return 1
                 printf '%s\n' "${options[${filtered_indices[$selected]}]}"
-                exec 3<&-
-                return 0
-                ;;
-            $'\177')
+                return 0 ;;
+            esc)
                 if (( filter_enabled )) && [[ -n "$filter" ]]; then
-                    filter="${filter%?}"
-                    _tuin_choose_apply_filter
-                fi
-                ;;
-            [[:print:]])
+                    filter=""; _tuin_choose_apply_filter
+                else
+                    _tuin_tty_leave; return 1
+                fi ;;
+            left) _tuin_tty_leave; return 1 ;;
+            bs)
+                if (( filter_enabled )) && [[ -n "$filter" ]]; then
+                    filter="${filter%?}"; _tuin_choose_apply_filter
+                else
+                    _tuin_tty_leave; return 1
+                fi ;;
+            ctrl-u)
+                (( filter_enabled )) && { filter=""; _tuin_choose_apply_filter; } ;;
+            ctrl-w)
                 if (( filter_enabled )); then
-                    filter="${filter}${key}"
+                    while [[ "$filter" == *' ' ]]; do filter="${filter% }"; done
+                    if [[ "$filter" == *' '* ]]; then
+                        filter="${filter% *} "
+                    else
+                        filter=""
+                    fi
                     _tuin_choose_apply_filter
-                fi
-                ;;
+                fi ;;
+            char:*)
+                c="${_tuin_key#char:}"
+                if (( filter_enabled )); then
+                    filter="$filter$c"; _tuin_choose_apply_filter
+                elif (( numbered )) && [[ "$c" == [1-9] ]] && (( c <= count )); then
+                    _tuin_tty_leave
+                    printf '%s\n' "${options[$((c - 1))]}"
+                    return 0
+                else
+                    case "$c" in
+                        j) _tuin_choose_move 1 1 ;;
+                        k) _tuin_choose_move -1 1 ;;
+                        g) selected=0 ;;
+                        G) selected=$((visible_count - 1)) ;;
+                        q) _tuin_tty_leave; return 1 ;;
+                    esac
+                fi ;;
         esac
-        printf '\033[%dA' "$last_height" >&3
-        _tuin_choose_render >&3
-        local new_height=$visible_count
-        (( filter_enabled )) && new_height=$((new_height + 1))
-        if (( new_height < last_height )); then
-            local extras=$((last_height - new_height))
-            local x
-            for (( x=0; x<extras; x++ )); do
-                printf '\r\033[K\n' >&3
-            done
-            printf '\033[%dA' "$extras" >&3
-        fi
-        last_height=$new_height
+        (( selected < 0 )) && selected=0
+        _tuin_choose_draw
     done
 }
 
-# All three _tuin_choose_* helpers below are module-level for two reasons:
-#   1. So they don't get installed into the caller's environment as a side
-#      effect of the first tuin_choose call (design constraint #10).
-#   2. So tests can invoke _tuin_choose_filter directly.
-# _tuin_choose_apply_filter and _tuin_choose_render rely on bash's dynamic
-# scoping to read/write the caller's locals (filter, count, options, selected,
-# visible_count, filtered_indices, filter_enabled) — they're only meaningful
-# when invoked from tuin_choose's scope. _tuin_choose_filter is standalone.
+_tuin_choose_move() {
+    local delta=$1 wrap=$2
+    (( visible_count == 0 )) && { selected=0; return 0; }
+    selected=$((selected + delta))
+    if (( wrap )); then
+        (( selected < 0 )) && selected=$((visible_count - 1))
+        (( selected >= visible_count )) && selected=0
+    else
+        (( selected < 0 )) && selected=0
+        (( selected >= visible_count )) && selected=$((visible_count - 1))
+    fi
+    return 0
+}
+
 _tuin_choose_apply_filter() {
     filtered_indices=()
     if [[ -z "$filter" ]]; then
@@ -577,24 +596,59 @@ _tuin_choose_apply_filter() {
     elif (( selected >= visible_count )); then
         selected=$((visible_count - 1))
     fi
+    return 0
+}
+
+_tuin_choose_draw() {
+    if (( max_rows == 0 || _TUIN_REDRAW )); then
+        max_rows=$(( $(_tuin_tty_rows) - 3 ))
+        (( max_rows < 1 )) && max_rows=1
+        _TUIN_REDRAW=0
+    fi
+    rows=$visible_count
+    (( rows > max_rows )) && rows=$max_rows
+    (( selected < top )) && top=$selected
+    (( selected >= top + rows )) && top=$((selected - rows + 1))
+    (( top + rows > visible_count )) && top=$((visible_count - rows))
+    (( top < 0 )) && top=0
+
+    local height=$((rows + filter_enabled + hints))
+    (( last_height > 0 )) && printf '\033[%dA' "$last_height" >&3
+    _tuin_choose_render >&3
+    if (( height < last_height )); then
+        local extras=$((last_height - height)) x
+        for (( x=0; x<extras; x++ )); do
+            printf '\r\033[K\n' >&3
+        done
+        printf '\033[%dA' "$extras" >&3
+    fi
+    last_height=$height
+    return 0
 }
 
 _tuin_choose_render() {
-    local pos idx
-    for (( pos=0; pos<visible_count; pos++ )); do
+    local pos idx label prefix
+    for (( pos=top; pos<top+rows; pos++ )); do
         idx="${filtered_indices[$pos]}"
+        label="${options[$idx]//[[:cntrl:]]/}"
+        prefix=""
+        (( numbered )) && prefix="$((idx + 1))) "
         printf '\r\033[K'
         if (( pos == selected )); then
-            printf '%s>%s %s%s%s\n' \
+            printf '%s>%s %s%s%s%s\n' \
                 "$_TUIN_CYAN" "$_TUIN_RESET" \
-                "$_TUIN_REV" "${options[$idx]}" "$_TUIN_RESET"
+                "$_TUIN_REV" "$prefix" "$label" "$_TUIN_RESET"
         else
-            printf '  %s\n' "${options[$idx]}"
+            printf '  %s%s\n' "$prefix" "$label"
         fi
     done
     if (( filter_enabled )); then
-        printf '\r\033[K  filter: %s\n' "$filter"
+        printf '\r\033[K  filter: %s  (%d/%d)\n' "${filter//[[:cntrl:]]/}" "$visible_count" "$count"
     fi
+    if (( hints )); then
+        printf '\r\033[K%s%s%s\n' "$_TUIN_DIM" "$hint" "$_TUIN_RESET"
+    fi
+    return 0
 }
 
 _tuin_choose_filter() {
