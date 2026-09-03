@@ -7,7 +7,7 @@
 # Public API:
 #   tuin_choose <opt1> <opt2> ...    Arrow-key menu; type-ahead when >=10 items
 #   tuin_confirm <prompt> [default]  Single-keypress y/n
-#   tuin_input <prompt> [default] [regex]   Read with default + regex validation
+#   tuin_input <prompt> [default] [regex]   Read with default + regex validation (1 on EOF)
 #   tuin_spin <label> -- <cmd> [args ...]   Run command with spinner
 #   tuin_banner <title>              Boxed banner
 #   tuin_section <heading>           Section divider
@@ -398,7 +398,7 @@ tuin_input() {
         built_prompt="$prompt: "
     fi
 
-    if ! _tuin_is_tty; then
+    if ! _tuin_choose_interactive; then
         IFS= read -r value || value=""
         [[ -z "$value" ]] && value="$default"
         printf '%s\n' "$value"
@@ -406,7 +406,10 @@ tuin_input() {
     fi
 
     while :; do
-        IFS= read -r -p "$built_prompt" value
+        if ! IFS= read -e -r -p "$built_prompt" value; then
+            printf '\n' >&2
+            return 1
+        fi
         [[ -z "$value" ]] && value="$default"
         if [[ -z "$regex" ]] || [[ "$value" =~ $regex ]]; then
             printf '%s\n' "$value"
