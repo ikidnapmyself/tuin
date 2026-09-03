@@ -337,7 +337,7 @@ tuin_section() {
 tuin_confirm() {
     local prompt="$1"
     local default="${2:-n}"
-    local indicator key
+    local indicator key rc
 
     if [[ "$default" == "y" || "$default" == "Y" ]]; then
         indicator="[Y/n]"
@@ -345,7 +345,7 @@ tuin_confirm() {
         indicator="[y/N]"
     fi
 
-    if ! _tuin_is_tty; then
+    if ! _tuin_choose_interactive || ! _tuin_tty_enter; then
         IFS= read -r key || key=""
         case "$key" in
             y*|Y*) return 0 ;;
@@ -357,18 +357,33 @@ tuin_confirm() {
         esac
     fi
 
-    printf '%s %s ' "$prompt" "$indicator"
-    IFS= read -rsn1 key
-    printf '\n'
-    case "$key" in
-        y|Y) return 0 ;;
-        n|N) return 1 ;;
-        ""|$'\n')
-            [[ "$default" == "y" || "$default" == "Y" ]] && return 0
-            return 1
-            ;;
-        *) return 1 ;;
-    esac
+    printf '%s %s ' "$prompt" "$indicator" >&3
+    rc=1
+    while :; do
+        if ! _tuin_readkey; then
+            rc=1
+            break
+        fi
+        if (( _TUIN_INTERRUPTED )); then
+            rc=130
+            break
+        fi
+        case "$_tuin_key" in
+            char:y|char:Y) rc=0; break ;;
+            char:n|char:N|char:q|esc) rc=1; break ;;
+            enter)
+                if [[ "$default" == "y" || "$default" == "Y" ]]; then
+                    rc=0
+                else
+                    rc=1
+                fi
+                break
+                ;;
+        esac
+    done
+    printf '\n' >&3
+    _tuin_tty_leave
+    return "$rc"
 }
 
 tuin_input() {
