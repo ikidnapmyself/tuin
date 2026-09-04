@@ -130,11 +130,19 @@ forces it on, `TUIN_FILTER=0` forces it off.
 | Move | `↑` `↓`, `j` `k`, `ctrl-p` `ctrl-n`, `tab` `shift-tab` |
 | Jump | `home` `end`, `g` `G`, `pgup` `pgdn` |
 | Pick | `enter`, or `1`-`9` for an instant pick when the list has fewer than 10 items |
-| Cancel | `esc`, `q`, `←`, `backspace` |
+| Cancel | `q`, `←`, `backspace`, `esc` |
 | Filter | printable keys type, `backspace` / `ctrl-u` / `ctrl-w` edit, `esc` clears the filter before it cancels |
 
 In filter mode the letter keys type instead of navigating, so use the arrows or
-`ctrl-n` / `ctrl-p` to move. The list scrolls when it is taller than the
+`ctrl-n` / `ctrl-p` to move, and `esc` rather than `q` to cancel.
+
+**`esc` lags about a second on bash 3.2**, which is macOS's default shell.
+Telling a bare `esc` apart from the start of an arrow-key sequence means
+waiting to see whether more bytes follow, and bash 3.2's `read -t` only accepts
+whole seconds. Bash 4+ waits 50 ms and feels instant. `q`, `←` and `backspace`
+cancel with no delay on every version, and are what the hint line names first.
+`TUIN_ESC_DELAY` overrides the wait, but bash 3.2 rejects fractional values, so
+one second is its floor. The list scrolls when it is taller than the
 terminal, and redraws on resize. A hint line shows the main keys, hidden with
 `TUIN_HINTS=0`.
 

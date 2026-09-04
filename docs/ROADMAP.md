@@ -12,8 +12,13 @@ These were on the v0.1.0 deferred list and are now done:
 - Windowing for menus longer than the terminal.
 - A CI job that runs the suite under a real bash 3.2.
 
-The ~1s ESC delay on bash 3.2 remains, because bash 3.2 only has
-integer-second `read -t`. It is now tunable with `TUIN_ESC_DELAY`.
+The ~1s ESC delay on bash 3.2 remains. Telling a bare `esc` from the start of
+an escape sequence means waiting for a following byte, and bash 3.2's `read -t`
+takes whole seconds only. The termios route out, `stty min 0 time 1` for a
+100 ms read, does not work either: bash's `read -n` installs its own cbreak
+mode and overrides `VMIN`/`VTIME`. Every alternative costs a dependency, so the
+delay stands. `q`, `←` and `backspace` cancel instantly instead, and
+`TUIN_ESC_DELAY` tunes the wait down to bash 3.2's one-second floor.
 
 ## Still deferred
 

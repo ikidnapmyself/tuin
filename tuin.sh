@@ -506,14 +506,25 @@ tuin_choose() {
         selected=$_TUIN_CHOOSE_START
     fi
 
-    local hint
+    local hint sep move pick cancel
     if _tuin_is_utf8; then
-        hint='↑↓/jk move · enter pick · esc cancel'
+        sep=' · '
+        move='↑↓/jk move'
+        (( filter_enabled )) && move='↑↓ move'
     else
-        hint='up/down/jk move, enter pick, esc cancel'
+        sep=', '
+        move='up/down/jk move'
+        (( filter_enabled )) && move='up/down move'
     fi
-    (( filter_enabled )) && hint="${hint/\/jk/} · type to filter"
-    (( numbered )) && hint="${hint/enter pick/1-9 or enter pick}"
+    pick='enter pick'
+    (( numbered )) && pick='1-9 or enter pick'
+    if (( filter_enabled )); then
+        cancel='esc cancel'
+    else
+        cancel='q/esc cancel'
+    fi
+    hint="$move$sep$pick$sep$cancel"
+    (( filter_enabled )) && hint="$hint${sep}type to filter"
 
     _tuin_choose_draw
 

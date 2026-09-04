@@ -18,7 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   terminal, and redraws on resize.
 - `tuin_choose` filter editing with `backspace`, `ctrl-u` and `ctrl-w`; `esc`
   clears a non-empty filter before it cancels.
-- A key hint line under `tuin_choose`, hidden with `TUIN_HINTS=0`.
+- A key hint line under `tuin_choose`, hidden with `TUIN_HINTS=0`. It names
+  `q` before `esc`, since `esc` lags a second on bash 3.2.
 - `tuin_input` readline editing on a terminal: arrow keys, `ctrl-a`/`ctrl-e`/
   `ctrl-w` and history.
 - `tuin_menu` reopens on the last entry picked when called again with the same
