@@ -48,8 +48,20 @@ setup() {
 
 # ---- tuin_version -----------------------------------------------------------
 
-@test "tuin_version prints 0.1.0" {
+@test "tuin_version prints a semver string" {
     run bash -c "source '$TUIN_SH' && tuin_version"
     assert_success
-    assert_output "0.1.0"
+    [[ "$output" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] \
+        || fail "tuin_version printed a non-semver string: $output"
+}
+
+@test "tuin_version agrees with both version locations in tuin.sh" {
+    local reported header assigned
+    reported=$(bash -c "source '$TUIN_SH' && tuin_version")
+    header=$(sed -n 's/^# Version: //p' "$TUIN_SH")
+    assigned=$(sed -n 's/^_TUIN_VERSION="\(.*\)"$/\1/p' "$TUIN_SH")
+    [ "$reported" = "$header" ] \
+        || fail "tuin_version ($reported) != '# Version:' header ($header)"
+    [ "$reported" = "$assigned" ] \
+        || fail "tuin_version ($reported) != _TUIN_VERSION ($assigned)"
 }
