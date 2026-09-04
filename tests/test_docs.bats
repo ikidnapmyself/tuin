@@ -52,3 +52,24 @@ setup() {
     grep -qiF 'sha-256' "$TUIN_REPO_ROOT/RELEASING.md" \
         || fail "RELEASING.md does not mention SHA-256"
 }
+
+@test "README documents every TUIN_* environment variable used in tuin.sh" {
+    local var
+    while IFS= read -r var; do
+        grep -qF "$var" "$TUIN_REPO_ROOT/README.md" \
+            || fail "README.md is missing env var: $var"
+    done < <(grep -oE '\$\{TUIN_[A-Z_]+' "$TUIN_SH" | tr -d '${' | sort -u)
+}
+
+@test "README has a keyboard reference for tuin_choose" {
+    grep -qF 'ctrl-n' "$TUIN_REPO_ROOT/README.md"
+    grep -qF 'shift-tab' "$TUIN_REPO_ROOT/README.md"
+}
+
+@test "docs/ROADMAP.md exists" {
+    [ -f "$TUIN_REPO_ROOT/docs/ROADMAP.md" ]
+}
+
+@test "tuin.sh header no longer carries the Ctrl-C known limitation" {
+    ! grep -q 'Known v0.1.0 limitation' "$TUIN_SH"
+}

@@ -9,11 +9,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - CI status and latest-release badges in the README.
+- `tuin_choose` keyboard conformance: `j`/`k`, `ctrl-n`/`ctrl-p`,
+  `tab`/`shift-tab`, `home`/`end`, `g`/`G` and `pgup`/`pgdn` all move; `q`,
+  `←` and `backspace` cancel alongside `esc`.
+- `tuin_choose` digit hotkeys: `1`-`9` pick instantly when the list has fewer
+  than 10 items, and rows are numbered to match.
+- `tuin_choose` wraps at both ends, scrolls when the list is taller than the
+  terminal, and redraws on resize.
+- `tuin_choose` filter editing with `backspace`, `ctrl-u` and `ctrl-w`; `esc`
+  clears a non-empty filter before it cancels.
+- A key hint line under `tuin_choose`, hidden with `TUIN_HINTS=0`.
+- `tuin_input` readline editing on a terminal: arrow keys, `ctrl-a`/`ctrl-e`/
+  `ctrl-w` and history.
+- `tuin_menu` reopens on the last entry picked when called again with the same
+  title.
+- `TUIN_FILTER`, `TUIN_HINTS` and `TUIN_ESC_DELAY` environment variables, all
+  documented in the README.
+- Ctrl-Z suspends an interactive primitive properly and redraws on `fg`.
+- A PTY test suite driving every interactive primitive through a real
+  pseudo-terminal, plus security tests that fail the build on `eval`, a shell
+  escape or an unquoted `$@`.
+- A macOS CI job that asserts it is running under a real bash 3.2.
+- `make bump V=X.Y.Z` and `docs/ROADMAP.md`.
 
 ### Changed
 - Release checklist (`RELEASING.md`) now includes a step to move the `stable`
   ref to each new tag, so the moving "always-the-latest-stable" `curl -O` URL
   stays in sync with releases.
+- `tuin_input` returns `1` on EOF (Ctrl-D) instead of reprompting forever.
+- `tuin_confirm` treats `q` and `esc` as no, and ignores any other key rather
+  than counting it as a no.
+- `tuin_confirm` and `tuin_input` decide whether to prompt from stdin and
+  `/dev/tty` rather than from stdout, matching `tuin_choose`. Capturing the
+  result no longer disables the interactive prompt.
+- Rendered labels and `tuin_menu` titles have control bytes stripped, so a
+  label carrying ANSI cannot repaint the terminal. Returned values stay
+  byte-exact.
+
+### Fixed
+- Ctrl-C in `tuin_choose` now exits on the first press and returns `130`. On
+  bash 3.2 it previously needed two.
+- An interactive primitive left idle no longer cancels itself after one second
+  on bash 3.2, where `read -t` reports a timeout and EOF identically.
+- Ctrl-Z no longer leaves the terminal in raw mode.
+- A caller's own `EXIT` trap is no longer clobbered.
 
 ## [0.1.0] - 2026-06-06
 
