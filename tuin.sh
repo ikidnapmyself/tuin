@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # tuin.sh — pure-bash TUI primitives, MIT-licensed
-# Version: 0.1.0
+# Version: 0.2.0
 # Home: https://github.com/ikidnapmyself/tuin
 #
 # Public API:
@@ -28,7 +28,7 @@
 [[ -n "${_TUIN_LOADED:-}" ]] && return 0
 _TUIN_LOADED=1
 
-_TUIN_VERSION="0.1.0"
+_TUIN_VERSION="0.2.0"
 
 _TUIN_INTERRUPTED=0
 _TUIN_REDRAW=0
