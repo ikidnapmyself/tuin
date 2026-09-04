@@ -26,7 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   title.
 - `TUIN_FILTER`, `TUIN_HINTS` and `TUIN_ESC_DELAY` environment variables, all
   documented in the README.
-- Ctrl-Z suspends an interactive primitive properly and redraws on `fg`.
+- `fg` after a Ctrl-Z re-enters raw mode and redraws the menu.
 - A PTY test suite driving every interactive primitive through a real
   pseudo-terminal, plus security tests that fail the build on `eval`, a shell
   escape or an unquoted `$@`.
@@ -52,7 +52,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   bash 3.2 it previously needed two.
 - An interactive primitive left idle no longer cancels itself after one second
   on bash 3.2, where `read -t` reports a timeout and EOF identically.
-- Ctrl-Z no longer leaves the terminal in raw mode.
+- Ctrl-Z no longer stops the process twice, which made every `fg`
+  immediately re-suspend. bash's `read` already stops cleanly, so tuin no
+  longer traps `TSTP` at all.
 - A caller's own `EXIT` trap is no longer clobbered.
 
 ## [0.1.0] - 2026-06-06

@@ -211,7 +211,6 @@ _tuin_tty_enter() {
     _tuin_tty_raw
     _TUIN_TRAPPED=1
     trap '_tuin_tty_onsignal' INT TERM
-    trap '_tuin_tty_suspend' TSTP
     trap '_tuin_tty_resume' CONT
     trap '_TUIN_REDRAW=1' WINCH
     if [[ -z "$(trap -p EXIT)" ]]; then
@@ -229,7 +228,7 @@ _tuin_tty_onsignal() {
 _tuin_tty_untrap() {
     (( _TUIN_TRAPPED )) || return 0
     _TUIN_TRAPPED=0
-    trap - INT TERM TSTP CONT WINCH
+    trap - INT TERM CONT WINCH
     if (( _TUIN_OWN_EXIT )); then
         trap - EXIT
         _TUIN_OWN_EXIT=0
@@ -247,17 +246,11 @@ _tuin_tty_leave() {
     return 0
 }
 
-_tuin_tty_suspend() {
-    _tuin_tty_cooked
-    trap - TSTP
-    kill -TSTP $$
-}
-
 _tuin_tty_resume() {
     (( _TUIN_TTY_ACTIVE )) || return 0
     _tuin_tty_raw
-    trap '_tuin_tty_suspend' TSTP
     _TUIN_REDRAW=1
+    return 0
 }
 
 _tuin_tty_rows() {

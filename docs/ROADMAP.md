@@ -8,7 +8,7 @@ likely a real consumer is to need it. Nothing here is promised.
 These were on the v0.1.0 deferred list and are now done:
 
 - Single-Ctrl-C cancel of `tuin_choose`.
-- SIGTSTP / Ctrl-Z recovery.
+- Ctrl-Z recovery: `fg` re-enters raw mode and redraws.
 - Windowing for menus longer than the terminal.
 - A CI job that runs the suite under a real bash 3.2.
 

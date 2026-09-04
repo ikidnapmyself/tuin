@@ -309,10 +309,13 @@ Every primitive obeys these rules:
 ### Signals
 
 While an interactive primitive is running, tuin installs its own handlers for
-`INT`, `TERM`, `TSTP`, `CONT` and `WINCH`, and resets them to default when the
+`INT`, `TERM`, `CONT` and `WINCH`, and resets them to default when the
 primitive returns. Ctrl-C returns `130` and hands the terminal back rather than
-killing your script. Ctrl-Z suspends properly and redraws on `fg`. Resizing the
-window redraws at the new height.
+killing your script. Resizing the window redraws at the new height.
+
+Ctrl-Z is deliberately left to bash, whose `read` builtin already restores the
+terminal and stops the process. tuin only takes `CONT`, to re-enter raw mode
+and redraw when you `fg`.
 
 Your own `EXIT` trap is left alone. tuin installs one only when you have none,
 as a backstop for a caller that exits mid-prompt, and removes it on the way

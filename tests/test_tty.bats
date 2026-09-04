@@ -36,7 +36,7 @@ setup() {
 }
 
 @test "tty: signals are reset to default after leave" {
-    tuin_pty '' -- '_tuin_tty_enter; _tuin_tty_leave; trap -p INT TERM TSTP CONT WINCH EXIT | wc -l'
+    tuin_pty '' -- '_tuin_tty_enter; _tuin_tty_leave; trap -p INT TERM CONT WINCH EXIT | wc -l'
     [ "$(printf '%s' "$pty_out" | tr -d ' ')" = 0 ]
 }
 
@@ -50,16 +50,20 @@ setup() {
     [ "$pty_out" = rc=130 ]
 }
 
-@test "tty: suspend restores cooked mode, resume re-enters raw and flags redraw" {
+@test "tty: resume re-enters raw mode and flags a redraw" {
     tuin_pty '' -- '
-        kill() { :; }
         before=$(tuin_stty_norm)
         _tuin_tty_enter
-        _tuin_tty_suspend
+        _tuin_tty_cooked
         parked=$(tuin_stty_norm <&3)
         _tuin_tty_resume
         resumed=$(tuin_stty_norm <&3)
         _tuin_tty_leave
         [[ "$parked" == "$before" && "$resumed" != "$before" && $_TUIN_REDRAW == 1 ]] && echo ok'
     [ "$pty_out" = ok ]
+}
+
+@test "tty: TSTP is left to bash, which already stops cleanly inside read" {
+    tuin_pty '' -- '_tuin_tty_enter; trap -p TSTP; _tuin_tty_leave; echo "[$(trap -p TSTP)]"'
+    [ "$pty_out" = '[]' ]
 }
