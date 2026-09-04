@@ -48,6 +48,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   byte-exact.
 
 ### Fixed
+- An escape sequence tuin does not recognise is now consumed to its final
+  byte. Previously parsing stopped at the first non-numeric parameter byte, so
+  `ESC[?25h` left `25h` in the buffer and the `2` silently picked the second
+  menu entry. Mouse reports leaked the same way.
 - Ctrl-C in `tuin_choose` now exits on the first press and returns `130`. On
   bash 3.2 it previously needed two.
 - An interactive primitive left idle no longer cancels itself after one second

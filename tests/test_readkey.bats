@@ -55,6 +55,14 @@ key() {
     [[ "$output" == *"rc=1"* ]]
 }
 
+@test "readkey: CSI with private and intermediate bytes is consumed whole" {
+    for seq in '\033[?25h' '\033[<0;1;1M' '\033[>c' '\033[!p' '\033[200~'; do
+        run bash -c "source '$TUIN_SH'; { _tuin_readkey; echo \"k=\$_tuin_key\"; _tuin_readkey; echo rc=\$?; } 3< <(printf '$seq')"
+        [[ "$output" == *"k=unknown"* ]] || fail "$seq did not yield unknown: $output"
+        [[ "$output" == *"rc=1"* ]] || fail "$seq leaked trailing bytes: $output"
+    done
+}
+
 @test "readkey: alt chords" {
     [ "$(key '\033x')" = alt-x ]
 }

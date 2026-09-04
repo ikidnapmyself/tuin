@@ -310,8 +310,12 @@ Every primitive obeys these rules:
 
 While an interactive primitive is running, tuin installs its own handlers for
 `INT`, `TERM`, `CONT` and `WINCH`, and resets them to default when the
-primitive returns. Ctrl-C returns `130` and hands the terminal back rather than
-killing your script. Resizing the window redraws at the new height.
+primitive returns. In `tuin_choose`, `tuin_menu` and `tuin_confirm`, Ctrl-C
+returns `130` and hands the terminal back rather than killing your script.
+Resizing the window redraws at the new height.
+
+`tuin_input` is the exception. It hands the line to readline, so Ctrl-C there
+behaves as it does at any bash `read -p` prompt rather than returning `130`.
 
 Ctrl-Z is deliberately left to bash, whose `read` builtin already restores the
 terminal and stops the process. tuin only takes `CONT`, to re-enter raw mode

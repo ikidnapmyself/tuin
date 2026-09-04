@@ -101,6 +101,13 @@ _tuin_bytelen() {
     printf '%d\n' "${#1}"
 }
 
+_tuin_is_csi_final() {
+    local LC_ALL=C o
+    printf -v o '%d' "'$1" 2>/dev/null || return 1
+    (( o < 0 )) && o=$((o + 256))
+    (( o >= 64 && o <= 126 ))
+}
+
 _tuin_ord() {
     local LC_ALL=C n
     n=$(printf '%d' "'$1")
@@ -136,10 +143,10 @@ _tuin_readkey() {
             case "$s" in
                 '[')
                     seq=""; n=0
-                    while (( n < 8 )); do
+                    while (( n < 16 )); do
                         IFS= read -rsn1 -t "$_TUIN_ESC_DELAY" c <&3 2>/dev/null || break
                         seq="$seq$c"; n=$((n + 1))
-                        case "$c" in [0-9\;]) ;; *) break ;; esac
+                        _tuin_is_csi_final "$c" && break
                     done
                     case "$seq" in
                         A) _tuin_key=up ;;    B) _tuin_key=down ;;

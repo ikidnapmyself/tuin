@@ -24,6 +24,8 @@ delay stands. `q`, `←` and `backspace` cancel instantly instead, and
 
 | Feature | Why deferred |
 |---|---|
+| Duplicate labels in `tuin_menu` | Cursor memory resolves the picked label back to its first occurrence, so `tuin_menu T A B A` reopens on the first `A`. `$TUIN_REPLY` is already ambiguous for duplicate labels, so the caller cannot tell them apart either. Passing the index out would mean restructuring `tuin_choose` around its stdout contract. |
+| Ctrl-C returning 130 from `tuin_input` | It hands the line to readline, where Ctrl-C behaves as at any bash `read -p` prompt. Wrapping that in tuin's own signal handling risks fighting readline for the terminal, for little gain at a plain text prompt. |
 | Per-title cursor memory in `tuin_menu` | The current single-slot memory covers the common case, one menu in a loop, without a hand-rolled map. Revisit if someone alternates between two menus and notices. |
 | Mouse events | Bash + mouse is a rabbit hole. |
 | Alternate-screen "fullscreen TUI" mode | Scope creep. tuin is primitives, not a framework. |
