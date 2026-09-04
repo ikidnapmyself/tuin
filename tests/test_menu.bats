@@ -3,6 +3,7 @@
 setup() {
     load 'test_helper/common-setup'
     _common_setup
+    load 'test_helper/pty'
 }
 
 @test "tuin_menu with no options returns 2" {
@@ -63,4 +64,29 @@ setup() {
     # the loop body runs once, then exits.
     run bash -c "source '$TUIN_SH' && printf '1\n2\n' | { count=0; while tuin_menu 'Pick' alpha; do count=\$((count+1)); done; echo \"iterations=\$count\"; }"
     assert_output --partial "iterations=1"
+}
+@test "menu: q, left, backspace all mean Back" {
+    for k in 'q' '\033[D' '\177' '\033'; do
+        tuin_pty "$k" -- 'tuin_menu Title A B; echo "rc=$?"'
+        [ "$pty_out" = rc=1 ]
+    done
+}
+
+@test "menu: cursor is remembered across loop iterations" {
+    tuin_pty 'j\r\r%PAUSE%\033' -- '
+        n=0
+        while tuin_menu Title A B C; do n=$((n+1)); echo "$n:$TUIN_REPLY"; done'
+    [ "$pty_out" = $'1:B\n2:B' ]
+}
+
+@test "menu: a different title starts at the top" {
+    tuin_pty 'j\r\r' -- '
+        tuin_menu One A B C; echo "$TUIN_REPLY"
+        tuin_menu Two A B C; echo "$TUIN_REPLY"'
+    [ "$pty_out" = $'B\nA' ]
+}
+
+@test "menu: no _TUIN_CHOOSE_START leaks to the caller" {
+    tuin_pty '\r' -- 'tuin_menu T A; echo "[${_TUIN_CHOOSE_START:-unset}]"'
+    [ "$pty_out" = '[unset]' ]
 }

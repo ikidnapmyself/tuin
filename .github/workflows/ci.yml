@@ -16,8 +16,15 @@ jobs:
       - uses: actions/checkout@v5
         with:
           submodules: recursive
+      - name: use system bash on macOS
+        if: runner.os == 'macOS'
+        run: echo "/bin" >> "$GITHUB_PATH"
       - name: bash version
-        run: bash --version
+        run: |
+          bash --version | head -1
+          if [ "${{ runner.os }}" = macOS ]; then
+            bash --version | head -1 | grep -q 'version 3\.2' || { echo "expected bash 3.2 on macOS"; exit 1; }
+          fi
       - name: run BATS
         run: tests/test_helper/bats-core/bin/bats tests/
 

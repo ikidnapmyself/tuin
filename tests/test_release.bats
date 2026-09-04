@@ -18,3 +18,16 @@ setup() {
     assert_success
     assert_output --partial "make checksum"
 }
+
+@test "make bump refuses a dirty tree and rewrites both version locations" {
+    tmp=$(mktemp -d)
+    cp "$TUIN_REPO_ROOT/Makefile" "$TUIN_REPO_ROOT/tuin.sh" "$TUIN_REPO_ROOT/README.md" "$tmp/"
+    git -C "$tmp" init -q && git -C "$tmp" add -A && git -C "$tmp" -c user.email=t@t -c user.name=t commit -qm init
+    run make -C "$tmp" bump V=9.9.9
+    assert_success
+    run grep -c '9\.9\.9' "$tmp/tuin.sh"
+    assert_output 2
+    echo x >> "$tmp/README.md"
+    run make -C "$tmp" bump V=9.9.10
+    assert_failure
+}

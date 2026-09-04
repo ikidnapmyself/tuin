@@ -120,7 +120,35 @@ capture the choice without losing the interactive UI:
 choice=$(tuin_choose Apple Banana Cherry)   # arrow keys still work
 ```
 
-A type-ahead filter activates when the item count is ≥ 10.
+A type-ahead filter activates when the item count is ≥ 10. `TUIN_FILTER=1`
+forces it on, `TUIN_FILTER=0` forces it off.
+
+**Keys:**
+
+| Action | Keys |
+|---|---|
+| Move | `↑` `↓`, `j` `k`, `ctrl-p` `ctrl-n`, `tab` `shift-tab` |
+| Jump | `home` `end`, `g` `G`, `pgup` `pgdn` |
+| Pick | `enter`, or `1`-`9` for an instant pick when the list has fewer than 10 items |
+| Cancel | `q`, `←`, `backspace`, `esc` |
+| Filter | printable keys type, `backspace` / `ctrl-u` / `ctrl-w` edit, `esc` clears the filter before it cancels |
+
+In filter mode the letter keys type instead of navigating, so use the arrows or
+`ctrl-n` / `ctrl-p` to move, and `esc` rather than `q` to cancel.
+
+**`esc` lags about a second on bash 3.2**, which is macOS's default shell.
+Telling a bare `esc` apart from the start of an arrow-key sequence means
+waiting to see whether more bytes follow, and bash 3.2's `read -t` only accepts
+whole seconds. Bash 4+ waits 50 ms and feels instant. `q`, `←` and `backspace`
+cancel with no delay on every version, and are what the hint line names first.
+`TUIN_ESC_DELAY` overrides the wait, but bash 3.2 rejects fractional values, so
+one second is its floor. The list scrolls when it is taller than the
+terminal, and redraws on resize. A hint line shows the main keys, hidden with
+`TUIN_HINTS=0`.
+
+Option labels are rendered with control bytes stripped, so a label carrying
+ANSI cannot repaint your terminal. The value written to stdout is always the
+original string, byte for byte.
 
 | Return code | Meaning |
 |---|---|
@@ -139,8 +167,9 @@ scripted callers keep working.
 
 A looping ("never-dying") menu for building cascading, drill-down interfaces.
 Renders `title` and the options plus an auto-appended **Back** entry. On an
-action pick it sets `$TUIN_REPLY` and returns `0`; on Back / ESC / Ctrl-C (or
-empty input / EOF when non-interactive) it returns non-zero, ending the loop:
+action pick it sets `$TUIN_REPLY` and returns `0`; on Back / ESC / `q` / `←` /
+`backspace` / Ctrl-C (or empty input / EOF when non-interactive) it returns
+non-zero, ending the loop:
 
 ```bash
 while tuin_menu "Health" "Run all checks" "List checkers"; do
@@ -160,6 +189,9 @@ selecting Back returns control to the parent menu. See
 | `0` | An action was picked; label is in `$TUIN_REPLY` |
 | non-zero | Back / ESC / Ctrl-C / EOF — leave the loop |
 
+Consecutive calls with the same title reopen on the last entry you picked, so
+a `while tuin_menu` loop does not send the cursor back to the top every time.
+
 The Back label is overridable with `TUIN_MENU_BACK`. **Non-TTY fallback:**
 prints a numbered list to stderr and reads one line from stdin; empty input or
 EOF returns non-zero so piped/CI loops terminate.
@@ -172,8 +204,10 @@ The default indicator is shown in caps: `[Y/n]` vs `[y/N]`.
 | Return code | Meaning |
 |---|---|
 | `0` | Yes |
-| `1` | No |
+| `1` | No, including `n`, `q` and `esc` |
 | `130` | Ctrl-C |
+
+Keys other than those are ignored, so a stray arrow key does not count as a no.
 
 **Non-TTY fallback:** reads stdin. A line starting with `y` / `Y` returns `0`;
 empty input uses the default; anything else returns `1`.
@@ -187,6 +221,15 @@ clean for capture:
 ```bash
 name=$(tuin_input "Your name" "World" '^[A-Za-z ]+$')
 ```
+
+On a terminal the prompt is a readline prompt, so arrow keys, `ctrl-a` /
+`ctrl-e` / `ctrl-w` and history editing all work. Readline echoes to stderr,
+leaving stdout for the value.
+
+| Return code | Meaning |
+|---|---|
+| `0` | A value was read; written to stdout |
+| `1` | EOF (Ctrl-D) |
 
 **Non-TTY fallback:** reads the first line of stdin; falls back to `default`
 if empty; ignores the regex (assumes pipe callers pass valid input).
@@ -244,9 +287,10 @@ or when called with no command at all; returns `0` otherwise. Idiom:
 Every primitive obeys these rules:
 
 - **TTY-aware.** Each primitive degrades on pipes, CI runners, and
-  `TERM=dumb` / `TERM` unset. `tuin_choose` and `tuin_menu` draw the UI on
-  `/dev/tty` so a captured stdout (`x=$(tuin_choose …)`) still gets arrow keys;
-  the others check `[[ -t 1 && -t 0 ]]`.
+  `TERM=dumb` / `TERM` unset. The interactive primitives key off stdin and
+  `/dev/tty`, never stdout, so a captured result (`x=$(tuin_choose …)`,
+  `x=$(tuin_input …)`) still gets a full interactive prompt. `tuin_spin` and
+  the decorations check `[[ -t 1 && -t 0 ]]`.
 - **`NO_COLOR` compliant.** Respects [no-color.org](https://no-color.org).
   When `NO_COLOR` is set, emits zero ANSI escapes.
 - **UTF-8 aware.** Detects UTF-8 from `LC_ALL` / `LC_CTYPE` / `LANG`. Falls
@@ -255,9 +299,41 @@ Every primitive obeys these rules:
 - **Cleanup-safe.** Cursor and `stty` state are restored on SIGINT, SIGTERM,
   and normal exit from any interactive primitive. Function-end cleanup is
   idempotent.
+- **Input is never a command.** No `eval`, no `sh -c`, no indirect expansion.
+  There is no shell-escape key in any primitive, and rendered labels have
+  control bytes stripped so they cannot repaint your terminal.
 - **Bash 3.2 compatible.** Targets macOS's default shell. No bash-4+ features.
 - **Zero runtime dependencies** beyond `bash`, `printf`, `read`, `stty`,
   `tput` — all POSIX or standard.
+
+### Signals
+
+While an interactive primitive is running, tuin installs its own handlers for
+`INT`, `TERM`, `CONT` and `WINCH`, and resets them to default when the
+primitive returns. In `tuin_choose`, `tuin_menu` and `tuin_confirm`, Ctrl-C
+returns `130` and hands the terminal back rather than killing your script.
+Resizing the window redraws at the new height.
+
+`tuin_input` is the exception. It hands the line to readline, so Ctrl-C there
+behaves as it does at any bash `read -p` prompt rather than returning `130`.
+
+Ctrl-Z is deliberately left to bash, whose `read` builtin already restores the
+terminal and stops the process. tuin only takes `CONT`, to re-enter raw mode
+and redraw when you `fg`.
+
+Your own `EXIT` trap is left alone. tuin installs one only when you have none,
+as a backstop for a caller that exits mid-prompt, and removes it on the way
+out.
+
+## Environment variables
+
+| Variable | Effect |
+|---|---|
+| `NO_COLOR` | Any value: emit zero ANSI color escapes. See [no-color.org](https://no-color.org). |
+| `TUIN_MENU_BACK` | Label for the auto-appended Back entry in `tuin_menu`. Default `Back`. |
+| `TUIN_FILTER` | `1` forces the `tuin_choose` filter on, `0` forces it off. Unset: on at ≥ 10 items. |
+| `TUIN_HINTS` | `0` hides the key hint line under `tuin_choose`. |
+| `TUIN_ESC_DELAY` | Seconds to wait for the rest of an escape sequence before treating `esc` as a bare keypress. Overrides the probe, which picks `0.05` on bash 4+ and `1` on bash 3.2. |
 
 ## Examples
 
@@ -287,21 +363,12 @@ entry. A `stable` ref pointing at the latest tagged release is provided for
 A `tuin_version` function is available so consumers can detect the loaded
 version at runtime.
 
-## What's not in v0.1
+## What's not in tuin
 
-The following are intentionally deferred — see the
-[v0.1.0 design](docs/plans/2026-06-06-tuin-v0.1.0-design.md) for
-rationale:
-
-- SIGTSTP / Ctrl-Z mid-prompt recovery
-- Mouse events
-- Windowing for menus longer than the terminal
-- Alternate-screen-buffer "fullscreen TUI" mode
-- Multi-select in `tuin_choose`
-- Async progress bars with passing-through output
-- Configurable color themes (`NO_COLOR` is the contract)
-- Auto-completion inside `tuin_input`
-- Label localization
+Mouse events, an alternate-screen "fullscreen TUI" mode, multi-select,
+async progress bars, color themes, completion in `tuin_input`, and label
+localization are all intentionally out. [`docs/ROADMAP.md`](docs/ROADMAP.md)
+carries the full list with the reasoning for each.
 
 ## License
 

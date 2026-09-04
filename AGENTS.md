@@ -32,10 +32,10 @@ All public functions are prefixed `tuin_`; internal helpers are `_tuin_`.
 | `tuin_banner` | `tuin_banner <title>` | boxed banner | `0` |
 | `tuin_section` | `tuin_section <heading>` | divider line | `0` |
 | `tuin_confirm` | `tuin_confirm <prompt> [y\|n]` | — | `0` yes; `1` no; `130` Ctrl-C |
-| `tuin_input` | `tuin_input <prompt> [default] [regex]` | the entered line | `0` |
+| `tuin_input` | `tuin_input <prompt> [default] [regex]` | the entered line | `0` ok; `1` EOF (Ctrl-D) |
 | `tuin_spin` | `tuin_spin <label> -- <cmd> [args…]` | inner cmd's stdout/stderr pass through | exit code of inner cmd |
 | `tuin_choose` | `tuin_choose <opt1> <opt2> [opt3…]` | selected option | `0` chosen; `1` filtered to none; `2` no options; `130` Ctrl-C |
-| `tuin_menu` | `tuin_menu <title> <opt1> [opt2…]` | — (sets `$TUIN_REPLY`) | `0` action picked; non-zero on Back/ESC/Ctrl-C/EOF |
+| `tuin_menu` | `tuin_menu <title> <opt1> [opt2…]` | — (sets `$TUIN_REPLY`) | `0` action picked; non-zero on Back/ESC/`q`/`←`/backspace/Ctrl-C/EOF |
 
 ## Rules you must follow (gotchas)
 
@@ -46,8 +46,9 @@ All public functions are prefixed `tuin_`; internal helpers are `_tuin_`.
 2. **`tuin_spin` requires the `--` separator:** `tuin_spin "Building" -- make all`.
    The `--` lets the label contain spaces; omitting it is a bug.
 3. **`tuin_menu` loops and auto-appends a Back entry.** Drive it with a `while`
-   loop and switch on `$TUIN_REPLY`; the loop ends (non-zero) on Back/ESC/
-   Ctrl-C. Override the Back label with `TUIN_MENU_BACK`.
+   loop and switch on `$TUIN_REPLY`; the loop ends (non-zero) on Back/ESC/`q`/
+   `←`/backspace/Ctrl-C. Override the Back label with `TUIN_MENU_BACK`. The
+   same title reopens on the last entry picked.
 4. **bash 3.2 only.** No `mapfile`/`readarray`, no associative arrays, no
    bash-4+ features (tuin targets macOS's default shell). Generated scripts
    that source tuin must stay 3.2-compatible too.
@@ -58,7 +59,12 @@ All public functions are prefixed `tuin_`; internal helpers are `_tuin_`.
    `tuin_menu` read a line from stdin (1-indexed number); `tuin_confirm`/
    `tuin_input` read stdin and honor defaults; `tuin_spin` runs the command
    without animation. So piped/CI callers work unchanged.
-7. **`NO_COLOR` and UTF-8 are automatic.** tuin emits zero ANSI escapes under
+7. **Environment knobs, all optional:** `NO_COLOR`, `TUIN_MENU_BACK` (Back
+   label), `TUIN_FILTER` (`1`/`0` forces `tuin_choose`'s filter on/off),
+   `TUIN_HINTS` (`0` hides the hint line), `TUIN_ESC_DELAY` (seconds to wait
+   for the rest of an escape sequence). Document any new one in the README;
+   a test enforces that.
+8. **`NO_COLOR` and UTF-8 are automatic.** tuin emits zero ANSI escapes under
    `NO_COLOR`, and falls back to ASCII box-drawing when the locale isn't UTF-8.
    Don't reimplement color/Unicode handling around it.
 
@@ -111,6 +117,9 @@ done   # falls through here on Back / ESC / Ctrl-C
 - ❌ Using bash-4 features (`declare -A`, `mapfile`) in scripts that source tuin.
 - ❌ Adding a dependency (jq, gum, …) to "improve" output — tuin's whole value
   is zero dependencies.
+- ❌ Putting ANSI in a label or title — tuin strips control bytes when
+  rendering, so it will not do what you want. The value returned to you is
+  still byte-exact.
 
 ## Full reference
 
