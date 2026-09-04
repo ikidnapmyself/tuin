@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 `tuin.sh` SHA-256:
 
 ```
-DIGEST_PLACEHOLDER
+7f69fb0edf827ac0e764cee044c14ed5628add59837a97d3e6daf0fd7b73a0e0  tuin.sh
 ```
 
 ### Added
