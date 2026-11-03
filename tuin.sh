@@ -281,17 +281,16 @@ _tuin_cursor_row() {
     printf '%s\n' "${BASH_REMATCH[1]}"
 }
 
-_tuin_cpr_probe() {
-    local saved rc=1
-    exec 3<>/dev/tty 2>/dev/null || return 1
-    if saved=$(stty -g <&3 2>/dev/null); then
-        stty -icanon -echo min 1 time 0 <&3 2>/dev/null
-        _tuin_cursor_row >/dev/null && rc=0
-        stty "$saved" <&3 2>/dev/null
-    fi
-    exec 3<&-
-    return "$rc"
-}
+_tuin_cpr_probe() (
+    exec 3<>/dev/tty 2>/dev/null || exit 1
+    saved=$(stty -g <&3 2>/dev/null) || exit 1
+    trap 'stty "$saved" <&3 2>/dev/null; exit 130' INT TERM
+    stty -icanon -echo min 1 time 0 <&3 2>/dev/null
+    _tuin_cursor_row >/dev/null
+    rc=$?
+    stty "$saved" <&3 2>/dev/null
+    exit "$rc"
+)
 
 # ---------------------------------------------------------------------------
 # Public API — stubs (filled in by later tasks)

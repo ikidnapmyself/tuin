@@ -108,3 +108,16 @@ setup() {
     [[ "$pty_out" == *x=a* ]] || false
     [[ "$pty_out" == *"trap -- '_tuin_tty_leave; tuin_fullscreen off' EXIT"* ]] || false
 }
+
+@test "fullscreen: Ctrl-C during the probe runs and keeps the caller INT trap" {
+    tuin_pty '' -- 'trap "echo c" INT; before=$(tuin_stty_norm); (sleep 0.4; kill -INT 0) & tuin_fullscreen on; wait; after=$(tuin_stty_norm); [[ "$before" == "$after" ]] && echo same; echo "cpr=$_TUIN_CPR"; trap -p INT'
+    printf '%s\n' "$pty_out" | grep -qx c
+    [[ "$pty_out" == *same* ]] || false
+    [[ "$pty_out" == *cpr=0* ]] || false
+    [[ "$pty_out" == *"trap -- 'echo c' SIGINT"* ]] || false
+}
+
+@test "fullscreen: Ctrl-C during the probe restores stty when the caller has no trap" {
+    tuin_pty '' -- 'trap : INT; before=$(tuin_stty_norm); ( (sleep 0.4; kill -INT 0) & tuin_fullscreen on; wait ); after=$(tuin_stty_norm); [[ "$before" == "$after" ]] && echo same'
+    [ "$pty_out" = same ]
+}
