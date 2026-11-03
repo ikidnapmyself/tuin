@@ -109,8 +109,8 @@ long list overflow and breaks in-place redraw.
 - `AGENTS.md`: API table rows and a fullscreen snippet.
 - `docs/ROADMAP.md`: fullscreen moves to landed. Live refresh and split panes
   stay rejected.
-- `CHANGELOG.md`: an Unreleased entry. The version bump to 0.3.0 happens at
-  release with `make bump`, not on this branch.
+- `CHANGELOG.md`: a 0.3.0 entry with the `tuin.sh` SHA-256. Version bumped
+  with `make bump` on this branch. Tagging waits for the owner.
 - All examples and docs use placeholders. No third-party names.
 
 ## Tests
