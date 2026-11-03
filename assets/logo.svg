@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 300" width="240" height="300" role="img" aria-labelledby="t">
+  <title id="t">tuin</title>
+  <path d="M120 150 C120 190 118 225 120 250" stroke="#2f9e44" stroke-width="8" fill="none" stroke-linecap="round"/>
+  <path d="M120 215 C85 215 62 195 55 165 C85 170 110 190 120 215 Z" fill="#37b24d"/>
+  <path d="M120 215 C155 215 178 195 185 165 C155 170 130 190 120 215 Z" fill="#2f9e44"/>
+  <path d="M120 150 C85 150 70 110 75 60 C95 80 110 95 120 100 C130 95 145 80 165 60 C170 110 155 150 120 150 Z" fill="#e03131"/>
+  <path d="M120 150 C100 140 95 100 120 100 C145 100 140 140 120 150 Z" fill="#c92a2a"/>
+  <text x="120" y="288" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace" font-size="28" fill="#868e96">tuin</text>
+</svg>
