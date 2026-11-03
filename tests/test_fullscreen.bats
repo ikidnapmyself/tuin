@@ -131,7 +131,7 @@ setup() {
 }
 
 @test "fullscreen: a silent terminal falls back to height minus 3 for that call" {
-    tuin_pty '\033[1;1R%PAUSE%\033[F\r' -- 'stty rows 10; tuin_fullscreen on; tuin_choose $(seq 1 40)'
+    tuin_pty '\033[1;1R%PAUSE%%PAUSE%\033[F\r' -- 'stty rows 10; tuin_fullscreen on; tuin_choose $(seq 1 40)'
     [ "$pty_out" = 40 ]
     [[ "$pty_tty" == *"  34"* ]] || false
 }
@@ -142,11 +142,30 @@ setup() {
 }
 
 @test "fullscreen: tuin_choose still returns its result through command substitution" {
-    tuin_pty '\033[1;1R\033[1;1R\033[B\r' -- 'tuin_fullscreen on; x=$(tuin_choose a b c); tuin_fullscreen off; echo "$x"'
-    [ "$pty_out" = b ]
+    tuin_pty '\033[1;1R\033[4;1R\033[F\r' -- 'stty rows 10; tuin_fullscreen on; x=$(tuin_choose $(seq 1 40)); tuin_fullscreen off; echo "$x"'
+    local n
+    n=$(printf '%s' "$pty_tty" | grep -o $'\033\\[6n' | wc -l | tr -d ' ')
+    [ "$pty_out" = 40 ]
+    [[ "$pty_tty" == *"  37"* ]] || false
+    [[ "$pty_tty" != *"  36"* ]] || false
+    [ "$n" = 2 ]
 }
 
 @test "fullscreen: tuin_menu counts its title line in the row budget" {
-    tuin_pty '\033[1;1R\033[2;1R\r' -- 'tuin_fullscreen on; tuin_menu T A B; echo "rc=$? reply=$TUIN_REPLY"'
-    [ "$pty_out" = 'rc=0 reply=A' ]
+    tuin_pty '\033[1;1R\033[3;1R\033[6~\r' -- 'stty rows 8; tuin_fullscreen on; TUIN_FILTER=0 tuin_menu T $(seq 1 20); echo "rc=$? reply=$TUIN_REPLY"'
+    local after_probe=${pty_tty#*$'\033[6n'}
+    [ "$pty_out" = 'rc=0 reply=5' ]
+    [[ "$pty_tty" == *"> 5"* ]] || false
+    [[ "$pty_tty" != *"  6"* ]] || false
+    [[ "$after_probe" == *$'T\r\n'*$'\033[6n'* ]] || false
+}
+
+@test "fullscreen: Ctrl-C during the row query returns 130 without drawing the list" {
+    tuin_pty '\033[1;1R' -- 'trap : INT; tuin_fullscreen on; (sleep 0.3; kill -INT 0) & x=$(tuin_choose alpha-opt beta-opt); rc=$?; wait; tuin_fullscreen off; echo "rc=$rc x=$x"'
+    local rest=${pty_tty#*$'\033[6n'}
+    [ "$pty_out" = 'rc=130 x=' ]
+    [[ "$rest" == *$'\033[6n'* ]] || false
+    rest=${rest#*$'\033[6n'}
+    [[ "$rest" != *alpha-opt* ]] || false
+    [[ "$rest" != *beta-opt* ]] || false
 }

@@ -653,6 +653,7 @@ tuin_choose() {
 
     if (( _TUIN_FULLSCREEN && _TUIN_CPR )); then
         list_row=$(_tuin_cursor_row) || list_row=0
+        (( _TUIN_INTERRUPTED )) && { _tuin_tty_leave; return 130; }
     fi
     _tuin_choose_draw
 
