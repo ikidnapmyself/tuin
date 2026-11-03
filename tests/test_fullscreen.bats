@@ -104,7 +104,7 @@ setup() {
 }
 
 @test "fullscreen: a list in a subshell leaves the fullscreen EXIT trap in place" {
-    tuin_pty '\033[1;1R\r' -- 'tuin_fullscreen on; x=$(tuin_choose a b); echo "x=$x"; trap -p EXIT'
+    tuin_pty '\033[1;1R\033[1;1R\r' -- 'tuin_fullscreen on; x=$(tuin_choose a b); echo "x=$x"; trap -p EXIT'
     [[ "$pty_out" == *x=a* ]] || false
     [[ "$pty_out" == *"trap -- '_tuin_tty_leave; tuin_fullscreen off' EXIT"* ]] || false
 }
@@ -120,4 +120,33 @@ setup() {
 @test "fullscreen: Ctrl-C during the probe restores stty when the caller has no trap" {
     tuin_pty '' -- 'trap : INT; before=$(tuin_stty_norm); ( (sleep 0.4; kill -INT 0) & tuin_fullscreen on; wait ); after=$(tuin_stty_norm); [[ "$before" == "$after" ]] && echo same'
     [ "$pty_out" = same ]
+}
+
+@test "fullscreen: a list fits the rows left below the cursor" {
+    tuin_pty '\033[1;1R\033[4;1R%PAUSE%\033[F\r' -- 'stty rows 10; tuin_fullscreen on; tuin_choose $(seq 1 40)'
+    [ "$pty_out" = 40 ]
+    [[ "$pty_tty" == *"> 40"* ]] || false
+    [[ "$pty_tty" == *"  37"* ]] || false
+    [[ "$pty_tty" != *"  36"* ]] || false
+}
+
+@test "fullscreen: a silent terminal falls back to height minus 3 for that call" {
+    tuin_pty '\033[1;1R%PAUSE%\033[F\r' -- 'stty rows 10; tuin_fullscreen on; tuin_choose $(seq 1 40)'
+    [ "$pty_out" = 40 ]
+    [[ "$pty_tty" == *"  34"* ]] || false
+}
+
+@test "fullscreen: a plain tuin_choose never asks for the cursor position" {
+    tuin_pty '\r' -- 'tuin_choose a b c'
+    [[ "$pty_tty" != *$'\033[6n'* ]] || false
+}
+
+@test "fullscreen: tuin_choose still returns its result through command substitution" {
+    tuin_pty '\033[1;1R\033[1;1R\033[B\r' -- 'tuin_fullscreen on; x=$(tuin_choose a b c); tuin_fullscreen off; echo "$x"'
+    [ "$pty_out" = b ]
+}
+
+@test "fullscreen: tuin_menu counts its title line in the row budget" {
+    tuin_pty '\033[1;1R\033[2;1R\r' -- 'tuin_fullscreen on; tuin_menu T A B; echo "rc=$? reply=$TUIN_REPLY"'
+    [ "$pty_out" = 'rc=0 reply=A' ]
 }

@@ -621,7 +621,7 @@ tuin_choose() {
     (( ! filter_enabled && count < 10 )) && numbered=1
     [[ "${TUIN_HINTS:-1}" == 0 ]] && hints=0
 
-    local selected=0 top=0 rows=0 max_rows=0 last_height=0
+    local selected=0 top=0 rows=0 max_rows=0 last_height=0 list_row=0
     local filtered_indices=() visible_count i
     for (( i=0; i<count; i++ )); do
         filtered_indices+=("$i")
@@ -651,6 +651,9 @@ tuin_choose() {
     hint="$move$sep$pick$sep$cancel"
     (( filter_enabled )) && hint="$hint${sep}type to filter"
 
+    if (( _TUIN_FULLSCREEN && _TUIN_CPR )); then
+        list_row=$(_tuin_cursor_row) || list_row=0
+    fi
     _tuin_choose_draw
 
     local c
@@ -761,7 +764,11 @@ _tuin_choose_apply_filter() {
 
 _tuin_choose_draw() {
     if (( max_rows == 0 || _TUIN_REDRAW )); then
-        max_rows=$(( $(_tuin_tty_rows) - 3 ))
+        if (( list_row > 0 )); then
+            max_rows=$(( $(_tuin_tty_rows) - list_row - filter_enabled - hints ))
+        else
+            max_rows=$(( $(_tuin_tty_rows) - 3 ))
+        fi
         (( max_rows < 1 )) && max_rows=1
         _TUIN_REDRAW=0
     fi
