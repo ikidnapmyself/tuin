@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-03
+
+`tuin.sh` SHA-256:
+
+```
+84c32d9146640f871f1b2e79c0b974cd5f6895c6c8d238f0f697ad213481aa66  tuin.sh
+```
+
 ### Added
 - `tuin_fullscreen on|off|clear` for whole-screen flows on the alternate screen.
 - `tuin_logo`, with a tulip in `assets/logo.txt`, an embedded fallback for a
@@ -141,5 +149,7 @@ Initial public release.
 - Pressing bare ESC to cancel `tuin_choose` takes ~1 second to register (bash
   3.2 only supports integer-second timeouts for arrow-key sequence detection).
 
-[Unreleased]: https://github.com/ikidnapmyself/tuin/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/ikidnapmyself/tuin/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/ikidnapmyself/tuin/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/ikidnapmyself/tuin/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/ikidnapmyself/tuin/releases/tag/v0.1.0
