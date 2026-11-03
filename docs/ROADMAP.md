@@ -11,6 +11,8 @@ These were on the v0.1.0 deferred list and are now done:
 - Ctrl-Z recovery: `fg` re-enters raw mode and redraws.
 - Windowing for menus longer than the terminal.
 - A CI job that runs the suite under a real bash 3.2.
+- `tuin_fullscreen` and `tuin_logo` (0.3.0): the alternate screen, a branded
+  header, and a row budget so lists fit under it.
 
 The ~1s ESC delay on bash 3.2 remains. Telling a bare `esc` from the start of
 an escape sequence means waiting for a following byte, and bash 3.2's `read -t`
@@ -28,7 +30,8 @@ delay stands. `q`, `←` and `backspace` cancel instantly instead, and
 | Ctrl-C returning 130 from `tuin_input` | It hands the line to readline, where Ctrl-C behaves as at any bash `read -p` prompt. Wrapping that in tuin's own signal handling risks fighting readline for the terminal, for little gain at a plain text prompt. |
 | Per-title cursor memory in `tuin_menu` | The current single-slot memory covers the common case, one menu in a loop, without a hand-rolled map. Revisit if someone alternates between two menus and notices. |
 | Mouse events | Bash + mouse is a rabbit hole. |
-| Alternate-screen "fullscreen TUI" mode | Scope creep. tuin is primitives, not a framework. |
+| Live auto-refresh | Needs an event loop and a sub-second `select` timeout. bash 3.2's whole-second `read -t` makes it rough. |
+| Split panes | Needs a layout engine and cursor addressing per region. Framework territory. |
 | Multi-select in `tuin_choose` | Defer until a real consumer needs it. |
 | Async progress bars with passing-through output | `tuin_spin` covers the 80%. |
 | Declarative menu trees / a menu engine | Framework territory. Rejected. |

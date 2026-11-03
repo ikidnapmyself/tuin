@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- `tuin_fullscreen on|off|clear` for whole-screen flows on the alternate screen.
+- `tuin_logo`, with a tulip in `assets/logo.txt`, an embedded fallback for a
+  vendored single file, and a `TUIN_LOGO` override.
+- `assets/logo.svg` for the README.
+- `examples/dashboard.sh`.
+
+### Changed
+- While fullscreen is on, `tuin_choose` and `tuin_menu` size their list to the
+  rows below the cursor instead of assuming the top of the screen.
+
 ## [0.2.0] - 2026-09-04
 
 `tuin.sh` SHA-256:

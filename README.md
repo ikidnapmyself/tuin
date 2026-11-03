@@ -1,3 +1,5 @@
+<p align="center"><img src="assets/logo.svg" width="120" alt="tuin"></p>
+
 # 🌷 tuin
 
 > A tulip in the garden — single-file, zero-dependency pure-bash TUI primitives.
@@ -30,7 +32,7 @@ tuin_confirm "Eat the $choice?" y && echo "Enjoy."
 
 - You're already in a richer runtime — in Python, [questionary](https://github.com/tmbo/questionary) / [rich](https://github.com/Textualize/rich) give you
 more (widgets, types, test tooling). tuin is for when you're in *bash*, not for competing inside Python.
-- You need full-screen layouts, mouse support, or complex widgets — that's a different tool class (ncurses-based frameworks).
+- You need split-pane layouts, live-refreshing dashboards, mouse support, or complex widgets — that's a different tool class (ncurses-based frameworks).
 - You're choosing specifically between *bash-TUI* tools — see [Why tuin](#why-tuin) below.
 
 tuin's niche is the shell-first middle: nicer-than-`read` interaction, zero install, runs wherever bash does.
@@ -106,7 +108,7 @@ non-zero (**fail closed**), so unverified bytes never reach your tree.
 
 ## Public API
 
-Nine functions, all prefixed `tuin_`. Internal helpers are prefixed `_tuin_`.
+Eleven functions, all prefixed `tuin_`. Internal helpers are prefixed `_tuin_`.
 The only global written by the library is `$TUIN_REPLY`, and only when
 `tuin_menu` picks an action — nothing leaks at source time.
 
@@ -258,6 +260,82 @@ Print a multi-line boxed banner. Uses Unicode box-drawing characters
 Print a single-line section divider, styled `═══ heading ═══` (Unicode) or
 `=== heading ===` (ASCII).
 
+### `tuin_fullscreen on|off|clear`
+
+Runs a whole-screen flow on the terminal's alternate screen. `on` switches to
+it and clears it. `off` switches back, and your scrollback is untouched.
+`clear` blanks the screen and homes the cursor, so each screen of your flow
+starts fresh. `on` and `off` are idempotent. Returns `0`, or `2` for an unknown
+argument.
+
+```bash
+source tuin.sh
+tuin_fullscreen on
+while :; do
+    tuin_fullscreen clear
+    tuin_logo
+    item=$(tuin_choose "${items[@]}") || break
+    [[ -t 0 ]] || break
+done
+tuin_fullscreen off
+```
+
+The `[[ -t 0 ]]` line matters off a terminal. There, `tuin_choose` reads a
+line from stdin and returns the first option with `0` at EOF, so the loop
+would never end. [`examples/dashboard.sh`](examples/dashboard.sh) does the
+same.
+
+While fullscreen is on, `tuin_choose` and `tuin_menu` size their list to the
+rows left below the cursor, so a logo or header above them doesn't push the
+list off the screen. To do this, each list asks the terminal for its cursor
+row when it opens. A terminal that doesn't answer gets the old window, the
+terminal height minus three.
+
+**The probe.** The first `tuin_fullscreen on` in a process checks once whether
+the terminal answers that query. A silent terminal costs at most one second,
+paid once. Ctrl-C during the probe restores the terminal settings. Your own
+`INT`, `TERM` and `EXIT` traps are left alone.
+
+**Type-ahead.** Keys typed just before a list opens are discarded, because
+the read for the terminal's reply swallows them. A capital `R` typed then ends
+that read early, since `R` closes the reply. If a reply arrives later than one
+second, its leftover bytes can show up as keystrokes.
+
+**Resize.** A fullscreen list keeps the start row it measured when it opened.
+After a shrink the window may be shorter than it could be, but it never
+overflows.
+
+**The `EXIT` trap.** `on` installs one that leaves the alternate screen, but
+only if you have none. `off` removes it only if it's still exactly tuin's. If
+you set your own `EXIT` trap, include `tuin_fullscreen off` in it.
+
+**Non-TTY fallback:** all three are silent no-ops that return `0`.
+
+### `tuin_logo`
+
+Prints the tulip. The caller places it, the way `tuin_banner` works. Returns
+`0`. The art comes from the first of these that exists:
+
+1. The file named by `TUIN_LOGO`.
+2. `assets/logo.txt` beside `tuin.sh`.
+3. A small tulip embedded in `tuin.sh`, so a vendored single file still shows
+   something.
+
+A missing or unreadable `TUIN_LOGO` falls through to the default. An empty
+`TUIN_LOGO` file prints nothing, which is the way to turn the logo off. Every
+source is read up to its first 24 lines.
+
+`assets/` is looked up beside the path `tuin.sh` was sourced by, without
+resolving symlinks. A symlinked `tuin.sh` looks next to the symlink, and an
+`eval`-loaded one looks next to the calling script. A vendored single file has
+no `assets/` there, so it shows the embedded tulip.
+
+The default tulip is drawn in the accent color unless `NO_COLOR` is set. A
+`TUIN_LOGO` file is printed as plain text with control bytes stripped, so it
+can't repaint your terminal. It is centered when stdout is a terminal of known
+width. tuin never copies or writes your logo, so keep it wherever your project
+keeps assets.
+
 ### `tuin_unpriv`
 
 Guard against a privileged launch. Returns non-zero (and prints a notice to
@@ -333,6 +411,7 @@ out.
 | `TUIN_MENU_BACK` | Label for the auto-appended Back entry in `tuin_menu`. Default `Back`. |
 | `TUIN_FILTER` | `1` forces the `tuin_choose` filter on, `0` forces it off. Unset: on at ≥ 10 items. |
 | `TUIN_HINTS` | `0` hides the key hint line under `tuin_choose`. |
+| `TUIN_LOGO` | Path to a plain-text file that `tuin_logo` prints instead of the built-in tulip. Missing or unreadable paths are ignored. An empty file hides the logo. |
 | `TUIN_ESC_DELAY` | Seconds to wait for the rest of an escape sequence before treating `esc` as a bare keypress. Overrides the probe, which picks `0.05` on bash 4+ and `1` on bash 3.2. |
 
 ## Examples
@@ -349,6 +428,7 @@ primitives; `safe_wrapper.sh` composes the guards with a menu and spinner):
 | [`examples/full_demo.sh`](examples/full_demo.sh) | All six TUI primitives |
 | [`examples/safe_wrapper.sh`](examples/safe_wrapper.sh) | `tuin_unpriv` + `tuin_guard` + `tuin_choose` + `tuin_spin` |
 | [`examples/cascading_menu.sh`](examples/cascading_menu.sh) | `tuin_menu` (drill-down + never-dying) + `tuin_banner` + `tuin_section` |
+| [`examples/dashboard.sh`](examples/dashboard.sh) | `tuin_fullscreen` + `tuin_logo` + `tuin_choose` + `tuin_menu` + `tuin_spin` |
 
 Run any of them from the repo root:
 
@@ -365,7 +445,7 @@ version at runtime.
 
 ## What's not in tuin
 
-Mouse events, an alternate-screen "fullscreen TUI" mode, multi-select,
+Mouse events, split panes and live-refreshing dashboards, multi-select,
 async progress bars, color themes, completion in `tuin_input`, and label
 localization are all intentionally out. [`docs/ROADMAP.md`](docs/ROADMAP.md)
 carries the full list with the reasoning for each.
