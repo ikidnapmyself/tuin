@@ -12,6 +12,7 @@
 #   tuin_banner <title>              Boxed banner
 #   tuin_section <heading>           Section divider
 #   tuin_fullscreen on|off|clear     Alternate screen for a whole-screen flow
+#   tuin_logo                        Print the tulip logo ($TUIN_LOGO overrides)
 #   tuin_version                     Print version string and return 0
 #   tuin_unpriv                      Refuse to run as root / via sudo
 #   tuin_guard <cmd> [args ...]      Reject privilege-escalating commands
@@ -28,6 +29,14 @@
 
 [[ -n "${_TUIN_LOADED:-}" ]] && return 0
 _TUIN_LOADED=1
+
+_TUIN_ASSETS_DIR=""
+case "${BASH_SOURCE[0]:-}" in
+    */*) _TUIN_ASSETS_DIR=$(CDPATH='' cd -- "${BASH_SOURCE[0]%/*}/" 2>/dev/null && pwd) \
+             || _TUIN_ASSETS_DIR="" ;;
+    ?*)  _TUIN_ASSETS_DIR=$PWD ;;
+esac
+[[ -z "$_TUIN_ASSETS_DIR" ]] || _TUIN_ASSETS_DIR="$_TUIN_ASSETS_DIR/assets"
 
 _TUIN_VERSION="0.2.0"
 
@@ -273,6 +282,13 @@ _tuin_tty_rows() {
     printf '%d\n' "$r"
 }
 
+_tuin_tty_cols() {
+    local r="" c=""
+    read -r r c < <({ stty size </dev/tty; } 2>/dev/null)
+    [[ "$c" =~ ^[0-9]+$ ]] || c=0
+    printf '%d\n' "$c"
+}
+
 _tuin_cursor_row() {
     local reply re=$'\033\\[([0-9]+);[0-9]+$'
     printf '\033[6n' >&3
@@ -394,6 +410,52 @@ tuin_fullscreen() {
             return 2
             ;;
     esac
+    return 0
+}
+
+_tuin_logo_embedded() {
+    printf '%s\n' \
+        '  \ | /' \
+        '  |\|/|' \
+        '   \_/' \
+        '    |' \
+        '  \_|_/'
+}
+
+_tuin_logo_collect() {
+    local line
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        line="${line//[[:cntrl:]]/}"
+        art+=("$line")
+        (( ${#line} > max )) && max=${#line}
+    done
+    return 0
+}
+
+tuin_logo() {
+    local src="" color="$_TUIN_CYAN" reset="$_TUIN_RESET"
+    if [[ -n "${TUIN_LOGO:-}" && -f "$TUIN_LOGO" && -r "$TUIN_LOGO" ]]; then
+        src="$TUIN_LOGO"
+        color=""
+        reset=""
+    elif [[ -n "$_TUIN_ASSETS_DIR" && -f "$_TUIN_ASSETS_DIR/logo.txt" && -r "$_TUIN_ASSETS_DIR/logo.txt" ]]; then
+        src="$_TUIN_ASSETS_DIR/logo.txt"
+    fi
+
+    local art=() max=0 cols=0 pad=0 lead="" line
+    if [[ -n "$src" ]]; then
+        _tuin_logo_collect < "$src"
+    else
+        _tuin_logo_collect < <(_tuin_logo_embedded)
+    fi
+    (( ${#art[@]} )) || return 0
+
+    [[ -t 1 ]] && cols=$(_tuin_tty_cols)
+    (( cols > max )) && pad=$(( (cols - max) / 2 ))
+    (( pad > 0 )) && printf -v lead '%*s' "$pad" ''
+    for line in "${art[@]}"; do
+        printf '%s%s%s%s\n' "$lead" "$color" "$line" "$reset"
+    done
     return 0
 }
 
