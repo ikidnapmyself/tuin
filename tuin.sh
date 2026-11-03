@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # tuin.sh — pure-bash TUI primitives, MIT-licensed
-# Version: 0.2.0
+# Version: 0.3.0
 # Home: https://github.com/ikidnapmyself/tuin
 #
 # Public API:
@@ -39,7 +39,7 @@ case "${BASH_SOURCE[0]:-}" in
 esac
 [[ -z "$_TUIN_ASSETS_DIR" ]] || _TUIN_ASSETS_DIR="$_TUIN_ASSETS_DIR/assets"
 
-_TUIN_VERSION="0.2.0"
+_TUIN_VERSION="0.3.0"
 
 _TUIN_INTERRUPTED=0
 _TUIN_REDRAW=0
