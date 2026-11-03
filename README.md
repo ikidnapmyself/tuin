@@ -32,7 +32,7 @@ tuin_confirm "Eat the $choice?" y && echo "Enjoy."
 
 - You're already in a richer runtime — in Python, [questionary](https://github.com/tmbo/questionary) / [rich](https://github.com/Textualize/rich) give you
 more (widgets, types, test tooling). tuin is for when you're in *bash*, not for competing inside Python.
-- You need split-pane layouts, live-refreshing dashboards, mouse support, or complex widgets — that's a different tool class (ncurses-based frameworks).
+- You need split-pane layouts, live-refreshing dashboards, mouse support, or complex widgets. That's a different tool class: ncurses-based frameworks.
 - You're choosing specifically between *bash-TUI* tools — see [Why tuin](#why-tuin) below.
 
 tuin's niche is the shell-first middle: nicer-than-`read` interaction, zero install, runs wherever bash does.
@@ -108,7 +108,7 @@ non-zero (**fail closed**), so unverified bytes never reach your tree.
 
 ## Public API
 
-Eleven functions, all prefixed `tuin_`. Internal helpers are prefixed `_tuin_`.
+Twelve functions, all prefixed `tuin_`. Internal helpers are prefixed `_tuin_`.
 The only global written by the library is `$TUIN_REPLY`, and only when
 `tuin_menu` picks an action — nothing leaks at source time.
 
@@ -309,6 +309,11 @@ overflows.
 only if you have none. `off` removes it only if it's still exactly tuin's. If
 you set your own `EXIT` trap, include `tuin_fullscreen off` in it.
 
+**Child CLIs.** The fullscreen state is per process. A child CLI that also
+sources tuin and calls `tuin_fullscreen off` drops the parent onto the main
+screen. A CLI meant to run under a fullscreen parent shouldn't toggle
+fullscreen itself.
+
 **Non-TTY fallback:** all three are silent no-ops that return `0`.
 
 ### `tuin_logo`
@@ -326,13 +331,15 @@ A missing or unreadable `TUIN_LOGO` falls through to the default. An empty
 source is read up to its first 24 lines.
 
 `assets/` is looked up beside the path `tuin.sh` was sourced by, without
-resolving symlinks. A symlinked `tuin.sh` looks next to the symlink, and an
+resolving symlinks. If that path has no slash, as when `source tuin.sh` finds
+the file through `PATH`, tuin looks for `assets/` in the current directory. A symlinked `tuin.sh` looks next to the symlink, and an
 `eval`-loaded one looks next to the calling script. A vendored single file has
 no `assets/` there, so it shows the embedded tulip.
 
 The default tulip is drawn in the accent color unless `NO_COLOR` is set. A
 `TUIN_LOGO` file is printed as plain text with control bytes stripped, so it
-can't repaint your terminal. It is centered when stdout is a terminal of known
+can't repaint your terminal. Tabs are control bytes too, so indent your art
+with spaces. It is centered when stdout is a terminal of known
 width. tuin never copies or writes your logo, so keep it wherever your project
 keeps assets.
 
@@ -370,7 +377,7 @@ Every primitive obeys these rules:
   `x=$(tuin_input …)`) still gets a full interactive prompt. `tuin_spin` and
   the decorations check `[[ -t 1 && -t 0 ]]`.
 - **`NO_COLOR` compliant.** Respects [no-color.org](https://no-color.org).
-  When `NO_COLOR` is set, emits zero ANSI escapes.
+  When `NO_COLOR` is set, emits zero ANSI color escapes.
 - **UTF-8 aware.** Detects UTF-8 from `LC_ALL` / `LC_CTYPE` / `LANG`. Falls
   back to ASCII decorations when the locale isn't UTF-8. Labels stay ASCII
   regardless — `tuin` itself has no localization.

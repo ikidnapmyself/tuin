@@ -67,7 +67,7 @@ All public functions are prefixed `tuin_`; internal helpers are `_tuin_`.
    for the rest of an escape sequence), `TUIN_LOGO` (path to a plain-text logo
    for `tuin_logo`). Document any new one in the README;
    a test enforces that.
-8. **`NO_COLOR` and UTF-8 are automatic.** tuin emits zero ANSI escapes under
+8. **`NO_COLOR` and UTF-8 are automatic.** tuin emits zero ANSI color escapes under
    `NO_COLOR`, and falls back to ASCII box-drawing when the locale isn't UTF-8.
    Don't reimplement color/Unicode handling around it.
 9. **Pair `tuin_fullscreen on` with `tuin_fullscreen off`.** `on` installs an

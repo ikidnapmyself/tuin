@@ -40,6 +40,7 @@ while :; do
     item=$(tuin_choose "${items[@]}") || break
     tuin_menu "$item" "Open" "Acknowledge" || continue
     ...
+    [[ -t 0 ]] || break
 done
 tuin_fullscreen off
 ```
@@ -108,7 +109,8 @@ long list overflow and breaks in-place redraw.
 - `AGENTS.md`: API table rows and a fullscreen snippet.
 - `docs/ROADMAP.md`: fullscreen moves to landed. Live refresh and split panes
   stay rejected.
-- `CHANGELOG.md`: 0.3.0 entry. Version bumped with `make bump`.
+- `CHANGELOG.md`: an Unreleased entry. The version bump to 0.3.0 happens at
+  release with `make bump`, not on this branch.
 - All examples and docs use placeholders. No third-party names.
 
 ## Tests

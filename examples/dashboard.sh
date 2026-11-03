@@ -12,7 +12,10 @@ items=(
 
 open_item() {
     local item=$1
-    while tuin_menu "$item" "Show details" "Acknowledge" "Escalate"; do
+    while :; do
+        tuin_fullscreen clear
+        tuin_logo
+        tuin_menu "$item" "Show details" "Acknowledge" "Escalate" || return 0
         case $TUIN_REPLY in
             "Show details")
                 tuin_section "Details"
@@ -25,7 +28,6 @@ open_item() {
                 ;;
         esac
     done
-    return 0
 }
 
 tuin_fullscreen on

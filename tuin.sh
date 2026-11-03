@@ -10,6 +10,7 @@
 #   tuin_input <prompt> [default] [regex]   Read with default + regex validation (1 on EOF)
 #   tuin_spin <label> -- <cmd> [args ...]   Run command with spinner
 #   tuin_banner <title>              Boxed banner
+#   tuin_menu <title> <opt1> ...     Action menu with Back; sets $TUIN_REPLY
 #   tuin_section <heading>           Section divider
 #   tuin_fullscreen on|off|clear     Alternate screen for a whole-screen flow
 #   tuin_logo                        Print the tulip logo ($TUIN_LOGO overrides)
