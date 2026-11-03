@@ -50,6 +50,8 @@ tuin_fullscreen off
 - `off` leaves it. The user's scrollback is untouched.
 - `clear` blanks the screen and homes the cursor.
 - `on` and `off` are idempotent. `off` without `on` does nothing.
+- The first `on` in a process probes once whether the terminal answers a
+  cursor-position query. See Row budget.
 - Escapes go to `/dev/tty`, so `$(...)` capture keeps working.
 - Non-TTY, CI, `TERM=dumb`: silent no-op, return 0.
 - Cursor visibility stays with the existing primitives.
@@ -64,6 +66,7 @@ tuin_fullscreen off
   1. File named by `TUIN_LOGO`, if readable.
   2. `assets/logo.txt` beside `tuin.sh`, resolved from `BASH_SOURCE`.
   3. A 4 to 6 line tulip embedded in `tuin.sh`.
+- Each source is read up to 24 lines.
 - The embedded fallback keeps single-file vendoring working.
 - The default tulip is colored unless `NO_COLOR`. A `TUIN_LOGO` file is
   printed as plain text with control bytes stripped, per the existing rule
@@ -79,15 +82,17 @@ tuin_fullscreen off
 (`tuin.sh`, `max_rows`). Anything printed above it, such as a logo, makes a
 long list overflow and breaks in-place redraw.
 
-- On entry, and after resize or `fg`, send `ESC[6n` to `/dev/tty` and read the
-  `row;col` reply.
+- Only while fullscreen is on, each list sends `ESC[6n` to `/dev/tty` when it
+  opens and reads the `row;col` reply. Inline lists keep height minus 3.
 - Window rows = height minus cursor row, minus the filter and hint lines.
-- If the terminal stays silent, fall back to height minus 3 and skip the query
-  for the rest of the session. The bash 3.2 whole-second `read -t` makes that
+- No re-query after resize or `fg`. The list keeps its start row. Each query
+  risks eating keys typed meanwhile, and terminals disagree on where the
+  cursor lands after a shrink.
+- The "does it answer?" probe runs once per process inside `tuin_fullscreen
+  on`. `tuin_choose` usually runs in a `$(...)` subshell, so a flag set there
+  wouldn't persist. If the terminal stays silent, lists fall back to height
+  minus 3 and skip the query. The bash 3.2 whole-second `read -t` makes that
   one stall cost up to 1s, paid at most once.
-- Inline menus benefit as well. This changes behavior for existing callers
-  starting low on the screen. It fixes an overflow and is noted in the
-  changelog.
 
 ## Logo assets
 
