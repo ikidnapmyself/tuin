@@ -39,6 +39,8 @@ _TUIN_TRAPPED=0
 _TUIN_FULLSCREEN=0
 _TUIN_FS_OWN_EXIT=0
 _TUIN_CPR=0
+_TUIN_CPR_PROBED=0
+_TUIN_FS_TRAP='_tuin_tty_leave; tuin_fullscreen off'
 _TUIN_STTY_SAVED=""
 _TUIN_MENU_LAST_TITLE=""
 _TUIN_MENU_LAST_INDEX=0
@@ -279,6 +281,18 @@ _tuin_cursor_row() {
     printf '%s\n' "${BASH_REMATCH[1]}"
 }
 
+_tuin_cpr_probe() {
+    local saved rc=1
+    exec 3<>/dev/tty 2>/dev/null || return 1
+    if saved=$(stty -g <&3 2>/dev/null); then
+        stty -icanon -echo min 1 time 0 <&3 2>/dev/null
+        _tuin_cursor_row >/dev/null && rc=0
+        stty "$saved" <&3 2>/dev/null
+    fi
+    exec 3<&-
+    return "$rc"
+}
+
 # ---------------------------------------------------------------------------
 # Public API — stubs (filled in by later tasks)
 # ---------------------------------------------------------------------------
@@ -351,23 +365,24 @@ tuin_fullscreen() {
         on)
             (( _TUIN_FULLSCREEN )) && return 0
             _tuin_choose_interactive || return 0
-            if _tuin_tty_enter; then
-                _tuin_cursor_row >/dev/null && _TUIN_CPR=1
-                _tuin_tty_leave
+            if (( ! _TUIN_CPR_PROBED )); then
+                _TUIN_CPR_PROBED=1
+                _tuin_cpr_probe && _TUIN_CPR=1
             fi
             printf '\033[?1049h\033[2J\033[H' >/dev/tty
             _TUIN_FULLSCREEN=1
             if [[ -z "$(trap -p EXIT)" ]]; then
                 _TUIN_FS_OWN_EXIT=1
-                trap '_tuin_tty_leave; tuin_fullscreen off' EXIT
+                # shellcheck disable=SC2064  # off matches the installed text exactly
+                trap "$_TUIN_FS_TRAP" EXIT
             fi
             ;;
         off)
             (( _TUIN_FULLSCREEN )) || return 0
-            printf '\033[?1049l' >/dev/tty 2>/dev/null
+            printf '\033[?1049l' 2>/dev/null >/dev/tty
             _TUIN_FULLSCREEN=0
             if (( _TUIN_FS_OWN_EXIT )); then
-                [[ "$(trap -p EXIT)" == *"tuin_fullscreen off"* ]] && trap - EXIT
+                [[ "$(trap -p EXIT)" == "trap -- '$_TUIN_FS_TRAP' EXIT" ]] && trap - EXIT
                 _TUIN_FS_OWN_EXIT=0
             fi
             ;;

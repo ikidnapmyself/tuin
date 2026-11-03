@@ -75,3 +75,36 @@ setup() {
     tuin_pty '' -- 'tuin_fullscreen on; echo "cpr=$_TUIN_CPR"'
     [ "$pty_out" = cpr=0 ]
 }
+
+@test "fullscreen: off keeps a caller trap that itself calls tuin_fullscreen off" {
+    tuin_pty '\033[1;1R' -- 'tuin_fullscreen on; trap "tuin_fullscreen off; echo cleanup" EXIT; tuin_fullscreen off; trap -p EXIT'
+    [[ "$pty_out" == *"echo cleanup"* ]] || false
+}
+
+@test "fullscreen: on leaves a caller INT trap and the stty state untouched" {
+    tuin_pty '\033[1;1R' -- 'trap "echo c" INT; before=$(tuin_stty_norm); tuin_fullscreen on; after=$(tuin_stty_norm); [[ "$before" == "$after" ]] && echo same; trap -p INT'
+    [[ "$pty_out" == *same* ]] || false
+    [[ "$pty_out" == *"echo c"* ]] || false
+}
+
+@test "fullscreen: a silent terminal is probed once per process" {
+    tuin_pty '' -- 'tuin_fullscreen on; tuin_fullscreen off; tuin_fullscreen on; echo done'
+    local n
+    n=$(printf '%s' "$pty_tty" | grep -o $'\033\\[6n' | wc -l | tr -d ' ')
+    [ "$pty_out" = done ]
+    [ "$n" = 1 ]
+}
+
+@test "fullscreen: off is silent when the terminal cannot be opened" {
+    if { : >/dev/tty; } 2>/dev/null; then
+        skip "needs a process with no controlling terminal"
+    fi
+    run bash -c "source '$TUIN_SH'; _TUIN_FULLSCREEN=1; tuin_fullscreen off; echo rc=\$?" </dev/null
+    assert_output rc=0
+}
+
+@test "fullscreen: a list in a subshell leaves the fullscreen EXIT trap in place" {
+    tuin_pty '\033[1;1R\r' -- 'tuin_fullscreen on; x=$(tuin_choose a b); echo "x=$x"; trap -p EXIT'
+    [[ "$pty_out" == *x=a* ]] || false
+    [[ "$pty_out" == *"trap -- '_tuin_tty_leave; tuin_fullscreen off' EXIT"* ]] || false
+}
