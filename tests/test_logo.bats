@@ -36,11 +36,30 @@ colored() {
     assert_output 'FROM-ENV'
 }
 
-@test "logo: an unreadable TUIN_LOGO falls through to assets" {
+@test "logo: a missing TUIN_LOGO falls through to assets" {
     mkdir "$WORK/assets"
     printf 'FROM-ASSETS\n' > "$WORK/assets/logo.txt"
     export TUIN_LOGO="$BATS_TEST_TMPDIR/missing.txt"
     run bash -c "source '$WORK/tuin.sh'; tuin_logo"
+    assert_output 'FROM-ASSETS'
+}
+
+@test "logo: an unreadable TUIN_LOGO falls through to assets" {
+    [[ "$EUID" -ne 0 ]] || skip "root reads mode-000 files"
+    mkdir "$WORK/assets"
+    printf 'FROM-ASSETS\n' > "$WORK/assets/logo.txt"
+    printf 'FROM-ENV\n' > "$BATS_TEST_TMPDIR/locked.txt"
+    chmod 000 "$BATS_TEST_TMPDIR/locked.txt"
+    export TUIN_LOGO="$BATS_TEST_TMPDIR/locked.txt"
+    run bash -c "source '$WORK/tuin.sh'; tuin_logo"
+    chmod 600 "$BATS_TEST_TMPDIR/locked.txt"
+    assert_output 'FROM-ASSETS'
+}
+
+@test "logo: a caller's cd function does not corrupt the assets path" {
+    mkdir "$WORK/assets"
+    printf 'FROM-ASSETS\n' > "$WORK/assets/logo.txt"
+    run bash -c "cd() { echo noise; builtin cd \"\$@\"; }; source '$WORK/tuin.sh'; tuin_logo"
     assert_output 'FROM-ASSETS'
 }
 
@@ -91,10 +110,10 @@ colored() {
 
 @test "logo: centers on a terminal of known width" {
     printf 'ab\n' > "$BATS_TEST_TMPDIR/two.txt"
-    tuin_pty '' -- "export TUIN_LOGO='$BATS_TEST_TMPDIR/two.txt'; _tuin_tty_cols() { echo 20; }; tuin_logo >/dev/tty"
+    tuin_pty '' -- "export TUIN_LOGO='$BATS_TEST_TMPDIR/two.txt'; _tuin_tty_cols() { echo 21; }; tuin_logo >/dev/tty"
     local pad
     printf -v pad '%9s' ''
-    [[ "$pty_tty" == *"${pad}ab"* ]] || false
+    [[ "$pty_tty" == "${pad}ab"$'\r'* || "$pty_tty" == *$'\n'"${pad}ab"$'\r'* ]] || false
 }
 
 @test "logo: does not center when the width is unknown" {
@@ -102,6 +121,16 @@ colored() {
     tuin_pty '' -- "export TUIN_LOGO='$BATS_TEST_TMPDIR/two.txt'; _tuin_tty_cols() { echo 0; }; tuin_logo >/dev/tty"
     [[ "$pty_tty" == "ab"$'\r'* || "$pty_tty" == *$'\n'"ab"$'\r'* ]] || false
     [[ "$pty_tty" != *" ab"* ]] || false
+}
+
+@test "logo: prints at most 24 lines" {
+    local i
+    for (( i = 1; i <= 100; i++ )); do echo "line $i"; done > "$BATS_TEST_TMPDIR/huge.txt"
+    export TUIN_LOGO="$BATS_TEST_TMPDIR/huge.txt"
+    run bash -c "source '$WORK/tuin.sh'; tuin_logo"
+    assert_success
+    [ "${#lines[@]}" -eq 24 ]
+    assert_line --index 23 'line 24'
 }
 
 @test "logo: always returns 0" {

@@ -32,7 +32,7 @@ _TUIN_LOADED=1
 
 _TUIN_ASSETS_DIR=""
 case "${BASH_SOURCE[0]:-}" in
-    */*) _TUIN_ASSETS_DIR=$(CDPATH='' cd -- "${BASH_SOURCE[0]%/*}/" 2>/dev/null && pwd) \
+    */*) _TUIN_ASSETS_DIR=$(CDPATH='' builtin cd -- "${BASH_SOURCE[0]%/*}/" 2>/dev/null && builtin pwd) \
              || _TUIN_ASSETS_DIR="" ;;
     ?*)  _TUIN_ASSETS_DIR=$PWD ;;
 esac
@@ -424,7 +424,7 @@ _tuin_logo_embedded() {
 
 _tuin_logo_collect() {
     local line
-    while IFS= read -r line || [[ -n "$line" ]]; do
+    while (( ${#art[@]} < 24 )) && { IFS= read -r line || [[ -n "$line" ]]; }; do
         line="${line//[[:cntrl:]]/}"
         art+=("$line")
         (( ${#line} > max )) && max=${#line}
@@ -444,7 +444,7 @@ tuin_logo() {
 
     local art=() max=0 cols=0 pad=0 lead="" line
     if [[ -n "$src" ]]; then
-        _tuin_logo_collect < "$src"
+        { _tuin_logo_collect < "$src"; } 2>/dev/null || :
     else
         _tuin_logo_collect < <(_tuin_logo_embedded)
     fi
