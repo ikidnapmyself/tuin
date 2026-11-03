@@ -11,6 +11,7 @@ cleanly when invoked from a real terminal.
 | `full_demo.sh` | All six TUI primitives |
 | `safe_wrapper.sh` | `tuin_unpriv` + `tuin_guard` + `tuin_choose` + `tuin_spin` |
 | `cascading_menu.sh` | `tuin_menu` (drill-down + never-dying) + `tuin_banner` + `tuin_section` |
+| `dashboard.sh` | `tuin_fullscreen` + `tuin_logo` + `tuin_choose` + `tuin_menu` + `tuin_spin` |
 
 Run any of them from the repo root:
 
