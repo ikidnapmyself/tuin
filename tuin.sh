@@ -11,6 +11,7 @@
 #   tuin_spin <label> -- <cmd> [args ...]   Run command with spinner
 #   tuin_banner <title>              Boxed banner
 #   tuin_section <heading>           Section divider
+#   tuin_fullscreen on|off|clear     Alternate screen for a whole-screen flow
 #   tuin_version                     Print version string and return 0
 #   tuin_unpriv                      Refuse to run as root / via sudo
 #   tuin_guard <cmd> [args ...]      Reject privilege-escalating commands
@@ -35,6 +36,9 @@ _TUIN_REDRAW=0
 _TUIN_TTY_ACTIVE=0
 _TUIN_OWN_EXIT=0
 _TUIN_TRAPPED=0
+_TUIN_FULLSCREEN=0
+_TUIN_FS_OWN_EXIT=0
+_TUIN_CPR=0
 _TUIN_STTY_SAVED=""
 _TUIN_MENU_LAST_TITLE=""
 _TUIN_MENU_LAST_INDEX=0
@@ -267,6 +271,14 @@ _tuin_tty_rows() {
     printf '%d\n' "$r"
 }
 
+_tuin_cursor_row() {
+    local reply re=$'\033\\[([0-9]+);[0-9]+$'
+    printf '\033[6n' >&3
+    IFS= read -rs -d R -t 1 reply <&3 || return 1
+    [[ "$reply" =~ $re ]] || return 1
+    printf '%s\n' "${BASH_REMATCH[1]}"
+}
+
 # ---------------------------------------------------------------------------
 # Public API — stubs (filled in by later tasks)
 # ---------------------------------------------------------------------------
@@ -332,6 +344,43 @@ tuin_section() {
     else
         printf '=== %s ===\n' "$heading"
     fi
+}
+
+tuin_fullscreen() {
+    case "${1:-}" in
+        on)
+            (( _TUIN_FULLSCREEN )) && return 0
+            _tuin_choose_interactive || return 0
+            if _tuin_tty_enter; then
+                _tuin_cursor_row >/dev/null && _TUIN_CPR=1
+                _tuin_tty_leave
+            fi
+            printf '\033[?1049h\033[2J\033[H' >/dev/tty
+            _TUIN_FULLSCREEN=1
+            if [[ -z "$(trap -p EXIT)" ]]; then
+                _TUIN_FS_OWN_EXIT=1
+                trap '_tuin_tty_leave; tuin_fullscreen off' EXIT
+            fi
+            ;;
+        off)
+            (( _TUIN_FULLSCREEN )) || return 0
+            printf '\033[?1049l' >/dev/tty 2>/dev/null
+            _TUIN_FULLSCREEN=0
+            if (( _TUIN_FS_OWN_EXIT )); then
+                [[ "$(trap -p EXIT)" == *"tuin_fullscreen off"* ]] && trap - EXIT
+                _TUIN_FS_OWN_EXIT=0
+            fi
+            ;;
+        clear)
+            _tuin_choose_interactive || return 0
+            printf '\033[2J\033[H' >/dev/tty
+            ;;
+        *)
+            printf 'tuin: usage: tuin_fullscreen on|off|clear\n' >&2
+            return 2
+            ;;
+    esac
+    return 0
 }
 
 tuin_confirm() {

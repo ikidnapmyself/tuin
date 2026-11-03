@@ -1,0 +1,77 @@
+#!/usr/bin/env bats
+
+setup() {
+    load 'test_helper/common-setup'
+    _common_setup
+    load 'test_helper/pty'
+}
+
+@test "fullscreen: on, clear and off are silent no-ops without a terminal" {
+    run bash -c "source '$TUIN_SH'; tuin_fullscreen on; a=\$?; tuin_fullscreen clear; b=\$?; tuin_fullscreen off; echo \"\$a\$b\$?\"" </dev/null
+    assert_success
+    assert_output 000
+}
+
+@test "fullscreen: a bad argument returns 2 and prints usage" {
+    run bash -c "source '$TUIN_SH'; tuin_fullscreen sideways </dev/null"
+    assert_failure 2
+    assert_output --partial 'usage'
+}
+
+@test "fullscreen: on enters the alternate screen and off leaves it" {
+    tuin_pty '\033[1;1R' -- 'tuin_fullscreen on; tuin_fullscreen off; echo done'
+    [ "$pty_out" = done ]
+    [[ "$pty_tty" == *$'\033[?1049h'*$'\033[?1049l'* ]] || false
+}
+
+@test "fullscreen: on and off are idempotent" {
+    tuin_pty '\033[1;1R' -- 'tuin_fullscreen off; tuin_fullscreen on; tuin_fullscreen on; tuin_fullscreen off; tuin_fullscreen off; echo done'
+    local h l
+    h=$(printf '%s' "$pty_tty" | grep -o '1049h' | wc -l | tr -d ' ')
+    l=$(printf '%s' "$pty_tty" | grep -o '1049l' | wc -l | tr -d ' ')
+    [ "$h" = 1 ]
+    [ "$l" = 1 ]
+}
+
+@test "fullscreen: clear blanks the screen and homes the cursor" {
+    tuin_pty '' -- 'tuin_fullscreen clear; echo done'
+    [[ "$pty_tty" == *$'\033[2J\033[H'* ]] || false
+}
+
+@test "fullscreen: on installs an EXIT backstop that leaves the alternate screen" {
+    tuin_pty '\033[1;1R' -- 'tuin_fullscreen on; echo done'
+    [[ "$pty_tty" == *$'\033[?1049h'*$'\033[?1049l'* ]] || false
+}
+
+@test "fullscreen: the EXIT backstop also hands the tty back" {
+    tuin_pty '\033[1;1R' -- 'tuin_fullscreen on; trap -p EXIT'
+    [[ "$pty_out" == *_tuin_tty_leave* ]] || false
+}
+
+@test "fullscreen: a caller EXIT trap is left alone" {
+    tuin_pty '\033[1;1R' -- 'trap "echo caller-exit" EXIT; tuin_fullscreen on; trap -p EXIT'
+    [[ "$pty_tty" == *$'\033[?1049h'* ]] || false
+    [[ "$pty_out" == *"echo caller-exit"* ]] || false
+    [[ "$pty_out" != *"tuin_fullscreen off"* ]] || false
+}
+
+@test "fullscreen: off removes its own EXIT trap" {
+    tuin_pty '\033[1;1R' -- 'tuin_fullscreen on; a=$(trap -p EXIT); tuin_fullscreen off; b=$(trap -p EXIT); [[ -n "$a" && -z "$b" ]] && echo ok'
+    [ "$pty_out" = ok ]
+}
+
+@test "fullscreen: off keeps a trap the caller set after on" {
+    tuin_pty '\033[1;1R' -- 'tuin_fullscreen on; trap "echo mine" EXIT; tuin_fullscreen off; trap -p EXIT'
+    [[ "$pty_tty" == *$'\033[?1049h'*$'\033[?1049l'* ]] || false
+    [[ "$pty_out" == *"echo mine"* ]] || false
+}
+
+@test "fullscreen: a terminal that answers the position query is recorded" {
+    tuin_pty '\033[1;1R' -- 'tuin_fullscreen on; echo "cpr=$_TUIN_CPR"'
+    [ "$pty_out" = cpr=1 ]
+}
+
+@test "fullscreen: a silent terminal costs one timeout and is recorded" {
+    tuin_pty '' -- 'tuin_fullscreen on; echo "cpr=$_TUIN_CPR"'
+    [ "$pty_out" = cpr=0 ]
+}
