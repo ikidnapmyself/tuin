@@ -7,8 +7,8 @@ fallbacks on non-TTY pipes, CI, and `TERM=dumb`.
 
 **Use it when** you're writing bash anyway (installers, VPS/bootstrap, CI glue,
 ops runbooks) and can't assume a richer runtime. **Don't use it when** you're
-already in Python/Node (use questionary/rich/etc.) or need full-screen/mouse
-UIs (use an ncurses framework).
+already in Python/Node (use questionary/rich/etc.) or need split-pane, live-refresh or
+mouse UIs (use an ncurses framework).
 
 ## Load
 
@@ -36,6 +36,8 @@ All public functions are prefixed `tuin_`; internal helpers are `_tuin_`.
 | `tuin_spin` | `tuin_spin <label> -- <cmd> [args…]` | inner cmd's stdout/stderr pass through | exit code of inner cmd |
 | `tuin_choose` | `tuin_choose <opt1> <opt2> [opt3…]` | selected option | `0` chosen; `1` filtered to none; `2` no options; `130` Ctrl-C |
 | `tuin_menu` | `tuin_menu <title> <opt1> [opt2…]` | — (sets `$TUIN_REPLY`) | `0` action picked; non-zero on Back/ESC/`q`/`←`/backspace/Ctrl-C/EOF |
+| `tuin_fullscreen` | `tuin_fullscreen on\|off\|clear` | none | `0`; `2` on a bad argument |
+| `tuin_logo` | `tuin_logo` | the tulip, or `$TUIN_LOGO`'s file | `0` |
 
 ## Rules you must follow (gotchas)
 
@@ -62,11 +64,16 @@ All public functions are prefixed `tuin_`; internal helpers are `_tuin_`.
 7. **Environment knobs, all optional:** `NO_COLOR`, `TUIN_MENU_BACK` (Back
    label), `TUIN_FILTER` (`1`/`0` forces `tuin_choose`'s filter on/off),
    `TUIN_HINTS` (`0` hides the hint line), `TUIN_ESC_DELAY` (seconds to wait
-   for the rest of an escape sequence). Document any new one in the README;
+   for the rest of an escape sequence), `TUIN_LOGO` (path to a plain-text logo
+   for `tuin_logo`). Document any new one in the README;
    a test enforces that.
-8. **`NO_COLOR` and UTF-8 are automatic.** tuin emits zero ANSI escapes under
+8. **`NO_COLOR` and UTF-8 are automatic.** tuin emits zero ANSI color escapes under
    `NO_COLOR`, and falls back to ASCII box-drawing when the locale isn't UTF-8.
    Don't reimplement color/Unicode handling around it.
+9. **Pair `tuin_fullscreen on` with `tuin_fullscreen off`.** `on` installs an
+   `EXIT` trap only if you have none. If you set your own `EXIT` trap, add
+   `tuin_fullscreen off` to it. Off a terminal `tuin_choose` returns the first
+   option at EOF, so a `while :` loop around it needs `[[ -t 0 ]] || break`.
 
 ## Canonical snippets
 
@@ -106,6 +113,20 @@ while tuin_menu "Health" "Run all checks" "List checkers"; do
         "List checkers")  ./list-checkers ;;
     esac
 done   # falls through here on Back / ESC / Ctrl-C
+```
+
+### Fullscreen screen-at-a-time flow
+
+```bash
+source tuin.sh
+tuin_fullscreen on
+while :; do
+    tuin_fullscreen clear
+    tuin_logo
+    item=$(tuin_choose "${items[@]}") || break
+    [[ -t 0 ]] || break
+done
+tuin_fullscreen off
 ```
 
 ## Anti-patterns

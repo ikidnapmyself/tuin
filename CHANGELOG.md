@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [0.3.0] - 2026-11-03
+
+`tuin.sh` SHA-256:
+
+```
+aa377dc761811f1e99ee6115d22e1de407ec40379a6ee224aecee474e5608423  tuin.sh
+```
+
+### Added
+- `tuin_fullscreen on|off|clear` for whole-screen flows on the alternate screen.
+- `tuin_logo`, with a shaded tulip and block-letter wordmark in
+  `assets/logo.utf8.txt` on UTF-8 locales, an ASCII wordmark in `assets/logo.txt`
+  otherwise, an embedded fallback for a vendored single file, and a
+  `TUIN_LOGO` override.
+- `assets/logo.svg` for the README.
+- `examples/dashboard.sh`.
+
+### Changed
+- While fullscreen is on, `tuin_choose` and `tuin_menu` size their list to the
+  rows below the cursor instead of assuming the top of the screen.
+
 ## [0.2.0] - 2026-09-04
 
 `tuin.sh` SHA-256:
@@ -128,5 +151,7 @@ Initial public release.
 - Pressing bare ESC to cancel `tuin_choose` takes ~1 second to register (bash
   3.2 only supports integer-second timeouts for arrow-key sequence detection).
 
-[Unreleased]: https://github.com/ikidnapmyself/tuin/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/ikidnapmyself/tuin/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/ikidnapmyself/tuin/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/ikidnapmyself/tuin/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/ikidnapmyself/tuin/releases/tag/v0.1.0

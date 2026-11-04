@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # tuin.sh — pure-bash TUI primitives, MIT-licensed
-# Version: 0.2.0
+# Version: 0.3.0
 # Home: https://github.com/ikidnapmyself/tuin
 #
 # Public API:
@@ -10,7 +10,10 @@
 #   tuin_input <prompt> [default] [regex]   Read with default + regex validation (1 on EOF)
 #   tuin_spin <label> -- <cmd> [args ...]   Run command with spinner
 #   tuin_banner <title>              Boxed banner
+#   tuin_menu <title> <opt1> ...     Action menu with Back; sets $TUIN_REPLY
 #   tuin_section <heading>           Section divider
+#   tuin_fullscreen on|off|clear     Alternate screen for a whole-screen flow
+#   tuin_logo                        Print the tulip logo ($TUIN_LOGO overrides)
 #   tuin_version                     Print version string and return 0
 #   tuin_unpriv                      Refuse to run as root / via sudo
 #   tuin_guard <cmd> [args ...]      Reject privilege-escalating commands
@@ -28,13 +31,26 @@
 [[ -n "${_TUIN_LOADED:-}" ]] && return 0
 _TUIN_LOADED=1
 
-_TUIN_VERSION="0.2.0"
+_TUIN_ASSETS_DIR=""
+case "${BASH_SOURCE[0]:-}" in
+    */*) _TUIN_ASSETS_DIR=$(CDPATH='' builtin cd -- "${BASH_SOURCE[0]%/*}/" 2>/dev/null && builtin pwd) \
+             || _TUIN_ASSETS_DIR="" ;;
+    ?*)  _TUIN_ASSETS_DIR=$PWD ;;
+esac
+[[ -z "$_TUIN_ASSETS_DIR" ]] || _TUIN_ASSETS_DIR="$_TUIN_ASSETS_DIR/assets"
+
+_TUIN_VERSION="0.3.0"
 
 _TUIN_INTERRUPTED=0
 _TUIN_REDRAW=0
 _TUIN_TTY_ACTIVE=0
 _TUIN_OWN_EXIT=0
 _TUIN_TRAPPED=0
+_TUIN_FULLSCREEN=0
+_TUIN_FS_OWN_EXIT=0
+_TUIN_CPR=0
+_TUIN_CPR_PROBED=0
+_TUIN_FS_TRAP='_tuin_tty_leave; tuin_fullscreen off'
 _TUIN_STTY_SAVED=""
 _TUIN_MENU_LAST_TITLE=""
 _TUIN_MENU_LAST_INDEX=0
@@ -267,6 +283,32 @@ _tuin_tty_rows() {
     printf '%d\n' "$r"
 }
 
+_tuin_tty_cols() {
+    local r="" c=""
+    read -r r c < <({ stty size </dev/tty; } 2>/dev/null)
+    [[ "$c" =~ ^[0-9]+$ ]] || c=0
+    printf '%d\n' "$c"
+}
+
+_tuin_cursor_row() {
+    local reply re=$'\033\\[([0-9]+);[0-9]+$'
+    printf '\033[6n' >&3
+    IFS= read -rs -d R -t 1 reply <&3 || return 1
+    [[ "$reply" =~ $re ]] || return 1
+    printf '%s\n' "${BASH_REMATCH[1]}"
+}
+
+_tuin_cpr_probe() (
+    exec 3<>/dev/tty 2>/dev/null || exit 1
+    saved=$(stty -g <&3 2>/dev/null) || exit 1
+    trap 'stty "$saved" <&3 2>/dev/null; exit 130' INT TERM
+    stty -icanon -echo min 1 time 0 <&3 2>/dev/null
+    _tuin_cursor_row >/dev/null
+    rc=$?
+    stty "$saved" <&3 2>/dev/null
+    exit "$rc"
+)
+
 # ---------------------------------------------------------------------------
 # Public API — stubs (filled in by later tasks)
 # ---------------------------------------------------------------------------
@@ -332,6 +374,93 @@ tuin_section() {
     else
         printf '=== %s ===\n' "$heading"
     fi
+}
+
+tuin_fullscreen() {
+    case "${1:-}" in
+        on)
+            (( _TUIN_FULLSCREEN )) && return 0
+            _tuin_choose_interactive || return 0
+            if (( ! _TUIN_CPR_PROBED )); then
+                _TUIN_CPR_PROBED=1
+                _tuin_cpr_probe && _TUIN_CPR=1
+            fi
+            printf '\033[?1049h\033[2J\033[H' >/dev/tty
+            _TUIN_FULLSCREEN=1
+            if [[ -z "$(trap -p EXIT)" ]]; then
+                _TUIN_FS_OWN_EXIT=1
+                # shellcheck disable=SC2064  # off matches the installed text exactly
+                trap "$_TUIN_FS_TRAP" EXIT
+            fi
+            ;;
+        off)
+            (( _TUIN_FULLSCREEN )) || return 0
+            printf '\033[?1049l' 2>/dev/null >/dev/tty
+            _TUIN_FULLSCREEN=0
+            if (( _TUIN_FS_OWN_EXIT )); then
+                [[ "$(trap -p EXIT)" == "trap -- '$_TUIN_FS_TRAP' EXIT" ]] && trap - EXIT
+                _TUIN_FS_OWN_EXIT=0
+            fi
+            ;;
+        clear)
+            _tuin_choose_interactive || return 0
+            printf '\033[2J\033[H' >/dev/tty
+            ;;
+        *)
+            printf 'tuin: usage: tuin_fullscreen on|off|clear\n' >&2
+            return 2
+            ;;
+    esac
+    return 0
+}
+
+_tuin_logo_embedded() {
+    printf '%s\n' \
+        '  \ | /' \
+        '  |\|/|' \
+        '   \_/' \
+        '    |' \
+        '  \_|_/'
+}
+
+_tuin_logo_collect() {
+    local line
+    while (( ${#art[@]} < 24 )) && { IFS= read -r line || [[ -n "$line" ]]; }; do
+        line="${line//[[:cntrl:]]/}"
+        art+=("$line")
+        (( ${#line} > max )) && max=${#line}
+    done
+    return 0
+}
+
+tuin_logo() {
+    local src="" color="$_TUIN_CYAN" reset="$_TUIN_RESET"
+    if [[ -n "${TUIN_LOGO:-}" && -f "$TUIN_LOGO" && -r "$TUIN_LOGO" ]]; then
+        src="$TUIN_LOGO"
+        color=""
+        reset=""
+    elif [[ -n "$_TUIN_ASSETS_DIR" ]] && _tuin_is_utf8 \
+        && [[ -f "$_TUIN_ASSETS_DIR/logo.utf8.txt" && -r "$_TUIN_ASSETS_DIR/logo.utf8.txt" ]]; then
+        src="$_TUIN_ASSETS_DIR/logo.utf8.txt"
+    elif [[ -n "$_TUIN_ASSETS_DIR" && -f "$_TUIN_ASSETS_DIR/logo.txt" && -r "$_TUIN_ASSETS_DIR/logo.txt" ]]; then
+        src="$_TUIN_ASSETS_DIR/logo.txt"
+    fi
+
+    local art=() max=0 cols=0 pad=0 lead="" line
+    if [[ -n "$src" ]]; then
+        { _tuin_logo_collect < "$src"; } 2>/dev/null || :
+    else
+        _tuin_logo_collect < <(_tuin_logo_embedded)
+    fi
+    (( ${#art[@]} )) || return 0
+
+    [[ -t 1 ]] && cols=$(_tuin_tty_cols)
+    (( cols > max )) && pad=$(( (cols - max) / 2 ))
+    (( pad > 0 )) && printf -v lead '%*s' "$pad" ''
+    for line in "${art[@]}"; do
+        printf '%s%s%s%s\n' "$lead" "$color" "$line" "$reset"
+    done
+    return 0
 }
 
 tuin_confirm() {
@@ -495,8 +624,9 @@ tuin_choose() {
     esac
     (( ! filter_enabled && count < 10 )) && numbered=1
     [[ "${TUIN_HINTS:-1}" == 0 ]] && hints=0
+    local hints_wanted=$hints
 
-    local selected=0 top=0 rows=0 max_rows=0 last_height=0
+    local selected=0 top=0 rows=0 max_rows=0 last_height=0 list_row=0
     local filtered_indices=() visible_count i
     for (( i=0; i<count; i++ )); do
         filtered_indices+=("$i")
@@ -526,6 +656,10 @@ tuin_choose() {
     hint="$move$sep$pick$sep$cancel"
     (( filter_enabled )) && hint="$hint${sep}type to filter"
 
+    if (( _TUIN_FULLSCREEN && _TUIN_CPR )); then
+        list_row=$(_tuin_cursor_row) || list_row=0
+        (( _TUIN_INTERRUPTED )) && { _tuin_tty_leave; return 130; }
+    fi
     _tuin_choose_draw
 
     local c
@@ -636,7 +770,23 @@ _tuin_choose_apply_filter() {
 
 _tuin_choose_draw() {
     if (( max_rows == 0 || _TUIN_REDRAW )); then
-        max_rows=$(( $(_tuin_tty_rows) - 3 ))
+        if (( list_row > 0 )); then
+            local avail=$(( $(_tuin_tty_rows) - list_row )) short
+            hints=$hints_wanted
+            (( avail - filter_enabled - hints < 1 )) && hints=0
+            # Too little room below the header: on the first draw, climb into
+            # its last lines rather than let the frame scroll it away. Later
+            # redraws move up by last_height, so they can't shift the start.
+            short=$(( 1 + filter_enabled - avail ))
+            if (( short > 0 && last_height == 0 && list_row > short )); then
+                printf '\033[%dA' "$short" >&3
+                list_row=$(( list_row - short ))
+                avail=$(( avail + short ))
+            fi
+            max_rows=$(( avail - filter_enabled - hints ))
+        else
+            max_rows=$(( $(_tuin_tty_rows) - 3 ))
+        fi
         (( max_rows < 1 )) && max_rows=1
         _TUIN_REDRAW=0
     fi
