@@ -326,7 +326,7 @@ Returns `0`. The art comes from the first of these that exists:
 1. The file named by `TUIN_LOGO`.
 2. `assets/logo.utf8.txt` beside `tuin.sh`, when the locale is UTF-8. This is
    the shaded tulip beside the block-letter wordmark.
-3. `assets/logo.txt` beside `tuin.sh`, the ASCII fallback.
+3. `assets/logo.txt` beside `tuin.sh`, the same wordmark in plain ASCII.
 4. A small tulip embedded in `tuin.sh`, so a vendored single file still shows
    something.
 

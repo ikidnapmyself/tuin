@@ -18,7 +18,7 @@ aa377dc761811f1e99ee6115d22e1de407ec40379a6ee224aecee474e5608423  tuin.sh
 ### Added
 - `tuin_fullscreen on|off|clear` for whole-screen flows on the alternate screen.
 - `tuin_logo`, with a shaded tulip and block-letter wordmark in
-  `assets/logo.utf8.txt` on UTF-8 locales, an ASCII tulip in `assets/logo.txt`
+  `assets/logo.utf8.txt` on UTF-8 locales, an ASCII wordmark in `assets/logo.txt`
   otherwise, an embedded fallback for a vendored single file, and a
   `TUIN_LOGO` override.
 - `assets/logo.svg` for the README.
