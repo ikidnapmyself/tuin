@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 `tuin.sh` SHA-256:
 
 ```
-8dc3f165e569b935896f020553024e0a406e29a710aa0762fee13101a71574bb  tuin.sh
+aa377dc761811f1e99ee6115d22e1de407ec40379a6ee224aecee474e5608423  tuin.sh
 ```
 
 ### Added

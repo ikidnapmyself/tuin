@@ -169,3 +169,26 @@ setup() {
     [[ "$rest" != *alpha-opt* ]] || false
     [[ "$rest" != *beta-opt* ]] || false
 }
+
+@test "fullscreen: a list with no room below the header drops the hints and climbs into it" {
+    tuin_pty '\033[1;1R\033[9;1R%PAUSE%\r' -- 'stty rows 10; tuin_fullscreen on; tuin_choose $(seq 1 40)'
+    local after=${pty_tty#*$'\033[6n'}
+    after=${after#*$'\033[6n'}
+    [ "$pty_out" = 1 ]
+    [[ "$after" == $'\033[1A'* ]] || false
+    [[ "$after" == *"> 1"* ]] || false
+    [[ "$after" == *"filter:"* ]] || false
+    [[ "$after" != *"  2"$'\r'* ]] || false
+    [[ "$after" != *"type to filter"* ]] || false
+}
+
+@test "fullscreen: a list keeps its hints when they fit" {
+    tuin_pty '\033[1;1R\033[6;1R%PAUSE%\r' -- 'stty rows 10; tuin_fullscreen on; tuin_choose $(seq 1 40)'
+    local after=${pty_tty#*$'\033[6n'}
+    after=${after#*$'\033[6n'}
+    [ "$pty_out" = 1 ]
+    [[ "$after" != $'\033[1A'* ]] || false
+    [[ "$after" == *"type to filter"* ]] || false
+    [[ "$after" == *"  2"* ]] || false
+    [[ "$after" != *"  3"$'\r'* ]] || false
+}

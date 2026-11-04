@@ -624,6 +624,7 @@ tuin_choose() {
     esac
     (( ! filter_enabled && count < 10 )) && numbered=1
     [[ "${TUIN_HINTS:-1}" == 0 ]] && hints=0
+    local hints_wanted=$hints
 
     local selected=0 top=0 rows=0 max_rows=0 last_height=0 list_row=0
     local filtered_indices=() visible_count i
@@ -770,7 +771,19 @@ _tuin_choose_apply_filter() {
 _tuin_choose_draw() {
     if (( max_rows == 0 || _TUIN_REDRAW )); then
         if (( list_row > 0 )); then
-            max_rows=$(( $(_tuin_tty_rows) - list_row - filter_enabled - hints ))
+            local avail=$(( $(_tuin_tty_rows) - list_row )) short
+            hints=$hints_wanted
+            (( avail - filter_enabled - hints < 1 )) && hints=0
+            # Too little room below the header: on the first draw, climb into
+            # its last lines rather than let the frame scroll it away. Later
+            # redraws move up by last_height, so they can't shift the start.
+            short=$(( 1 + filter_enabled - avail ))
+            if (( short > 0 && last_height == 0 && list_row > short )); then
+                printf '\033[%dA' "$short" >&3
+                list_row=$(( list_row - short ))
+                avail=$(( avail + short ))
+            fi
+            max_rows=$(( avail - filter_enabled - hints ))
         else
             max_rows=$(( $(_tuin_tty_rows) - 3 ))
         fi

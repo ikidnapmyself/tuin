@@ -289,7 +289,9 @@ While fullscreen is on, `tuin_choose` and `tuin_menu` size their list to the
 rows left below the cursor, so a logo or header above them doesn't push the
 list off the screen. To do this, each list asks the terminal for its cursor
 row when it opens. A terminal that doesn't answer gets the old window, the
-terminal height minus three.
+terminal height minus three. When the header leaves too little room, the list
+drops its hint line first. If one option and the filter line still don't fit,
+it draws over the header's last lines instead of scrolling the header away.
 
 **The probe.** The first `tuin_fullscreen on` in a process checks once whether
 the terminal answers that query. A silent terminal costs at most one second,
