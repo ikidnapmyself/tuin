@@ -1,4 +1,4 @@
-<p align="center"><img src="assets/logo.svg" width="120" alt="tuin"></p>
+<p align="center"><img src="assets/logo.svg" width="392" alt="tuin"></p>
 
 # 🌷 tuin
 
@@ -318,12 +318,14 @@ fullscreen itself.
 
 ### `tuin_logo`
 
-Prints the tulip. The caller places it, the way `tuin_banner` works. Returns
-`0`. The art comes from the first of these that exists:
+Prints the project logo. The caller places it, the way `tuin_banner` works.
+Returns `0`. The art comes from the first of these that exists:
 
 1. The file named by `TUIN_LOGO`.
-2. `assets/logo.txt` beside `tuin.sh`.
-3. A small tulip embedded in `tuin.sh`, so a vendored single file still shows
+2. `assets/logo.utf8.txt` beside `tuin.sh`, when the locale is UTF-8. This is
+   the shaded tulip beside the block-letter wordmark.
+3. `assets/logo.txt` beside `tuin.sh`, the ASCII fallback.
+4. A small tulip embedded in `tuin.sh`, so a vendored single file still shows
    something.
 
 A missing or unreadable `TUIN_LOGO` falls through to the default. An empty
@@ -336,7 +338,7 @@ the file through `PATH`, tuin looks for `assets/` in the current directory. A sy
 `eval`-loaded one looks next to the calling script. A vendored single file has
 no `assets/` there, so it shows the embedded tulip.
 
-The default tulip is drawn in the accent color unless `NO_COLOR` is set. A
+The default art is drawn in the accent color unless `NO_COLOR` is set. A
 `TUIN_LOGO` file is printed as plain text with control bytes stripped, so it
 can't repaint your terminal. Tabs are control bytes too, so indent your art
 with spaces. It is centered when stdout is a terminal of known

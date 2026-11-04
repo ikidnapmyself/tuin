@@ -12,13 +12,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 `tuin.sh` SHA-256:
 
 ```
-84c32d9146640f871f1b2e79c0b974cd5f6895c6c8d238f0f697ad213481aa66  tuin.sh
+8dc3f165e569b935896f020553024e0a406e29a710aa0762fee13101a71574bb  tuin.sh
 ```
 
 ### Added
 - `tuin_fullscreen on|off|clear` for whole-screen flows on the alternate screen.
-- `tuin_logo`, with a tulip in `assets/logo.txt`, an embedded fallback for a
-  vendored single file, and a `TUIN_LOGO` override.
+- `tuin_logo`, with a shaded tulip and block-letter wordmark in
+  `assets/logo.utf8.txt` on UTF-8 locales, an ASCII tulip in `assets/logo.txt`
+  otherwise, an embedded fallback for a vendored single file, and a
+  `TUIN_LOGO` override.
 - `assets/logo.svg` for the README.
 - `examples/dashboard.sh`.
 

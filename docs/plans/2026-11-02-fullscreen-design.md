@@ -65,8 +65,11 @@ tuin_fullscreen off
 - Prints to stdout. Returns 0. The caller decides where it goes.
 - Source order:
   1. File named by `TUIN_LOGO`, if readable.
-  2. `assets/logo.txt` beside `tuin.sh`, resolved from `BASH_SOURCE`.
-  3. A 4 to 6 line tulip embedded in `tuin.sh`.
+  2. `assets/logo.utf8.txt` beside `tuin.sh` on a UTF-8 locale. It holds the
+     shaded tulip and the block-letter wordmark.
+  3. `assets/logo.txt` beside `tuin.sh`, the ASCII fallback. Both are resolved
+     from `BASH_SOURCE`.
+  4. A 4 to 6 line tulip embedded in `tuin.sh`.
 - Each source is read up to 24 lines.
 - The embedded fallback keeps single-file vendoring working.
 - The default tulip is colored unless `NO_COLOR`. A `TUIN_LOGO` file is

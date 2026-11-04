@@ -439,6 +439,9 @@ tuin_logo() {
         src="$TUIN_LOGO"
         color=""
         reset=""
+    elif [[ -n "$_TUIN_ASSETS_DIR" ]] && _tuin_is_utf8 \
+        && [[ -f "$_TUIN_ASSETS_DIR/logo.utf8.txt" && -r "$_TUIN_ASSETS_DIR/logo.utf8.txt" ]]; then
+        src="$_TUIN_ASSETS_DIR/logo.utf8.txt"
     elif [[ -n "$_TUIN_ASSETS_DIR" && -f "$_TUIN_ASSETS_DIR/logo.txt" && -r "$_TUIN_ASSETS_DIR/logo.txt" ]]; then
         src="$_TUIN_ASSETS_DIR/logo.txt"
     fi

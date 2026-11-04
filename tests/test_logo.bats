@@ -102,10 +102,45 @@ colored() {
     assert_failure
 }
 
-@test "logo: tuin.sh run from the repo prints assets/logo.txt" {
-    run bash -c "source '$TUIN_SH'; tuin_logo"
+@test "logo: tuin.sh run from the repo prints assets/logo.txt outside UTF-8" {
+    run env LC_ALL=C LC_CTYPE= LANG= bash -c "source '$TUIN_SH'; tuin_logo"
     assert_success
     assert_output "$(cat "$TUIN_REPO_ROOT/assets/logo.txt")"
+}
+
+@test "logo: tuin.sh run from the repo prints assets/logo.utf8.txt under UTF-8" {
+    run env LC_ALL=en_US.UTF-8 bash -c "source '$TUIN_SH'; tuin_logo"
+    assert_success
+    assert_output "$(cat "$TUIN_REPO_ROOT/assets/logo.utf8.txt")"
+}
+
+@test "logo: assets/logo.utf8.txt beats logo.txt only under UTF-8" {
+    mkdir "$WORK/assets"
+    printf 'FROM-ASCII\n' > "$WORK/assets/logo.txt"
+    printf 'FROM-UTF8\n' > "$WORK/assets/logo.utf8.txt"
+    run env LC_ALL=en_US.UTF-8 bash -c "source '$WORK/tuin.sh'; tuin_logo"
+    assert_output 'FROM-UTF8'
+    run env LC_ALL=C LC_CTYPE= LANG= bash -c "source '$WORK/tuin.sh'; tuin_logo"
+    assert_output 'FROM-ASCII'
+}
+
+@test "logo: the repo's assets/logo.utf8.txt is short, valid UTF-8 and control-free" {
+    local f="$TUIN_REPO_ROOT/assets/logo.utf8.txt" n
+    [ -s "$f" ]
+    n=$(wc -l < "$f" | tr -d ' ')
+    [ "$n" -le 12 ]
+    run env LC_ALL=C grep -n '[[:cntrl:]]' "$f"
+    assert_failure
+    iconv -f UTF-8 -t UTF-8 "$f" >/dev/null
+}
+
+@test "logo: centers UTF-8 art by characters, not bytes" {
+    printf '\xe2\x96\x88\xe2\x96\x88\n' > "$BATS_TEST_TMPDIR/blocks.txt"
+    tuin_pty '' -- "export LC_ALL=en_US.UTF-8 TUIN_LOGO='$BATS_TEST_TMPDIR/blocks.txt'; _tuin_tty_cols() { echo 22; }; tuin_logo >/dev/tty"
+    local pad
+    printf -v pad '%10s' ''
+    [[ "$pty_tty" == *"${pad}"$'\xe2\x96\x88'* ]] || false
+    [[ "$pty_tty" != *"${pad} "$'\xe2\x96\x88'* ]] || false
 }
 
 @test "logo: centers on a terminal of known width" {
